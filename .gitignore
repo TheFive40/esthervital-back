@@ -1,52 +1,48 @@
-# Entorno virtual
-venv/
-.venv/
-env/
-
-# Variables de entorno (NUNCA subir a Git)
-.env
-
-# Python
+# Bytes compilados de Python
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
 
-# IDEs
+# Entornos virtuales
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Variables de entorno
+.env
+.env.*
+!.env.example
+
+# Datos y Configuración IDE
 .idea/
 .vscode/
 *.swp
 *.swo
 *~
-
-# Logs
-*.log
-
-# Base de datos local (si existiera)
-*.db
-*.sqlite3
-
-# Sistema operativo
 .DS_Store
 Thumbs.db
 
-# Pytest
+# Logs
+*.log
+logs/
+
+# Base de datos local
+*.db
+*.sqlite3
+*.sqlite
+
+# Testing y Coverage
 .pytest_cache/
 .coverage
 htmlcov/
+coverage.xml
+*.cover
+
+# Builds y Distribución
+build/
+dist/
+*.egg-info/
+.eggs/
