@@ -34,3 +34,30 @@ class UsuarioUpdate(BaseModel):
 class CambiarPassword(BaseModel):
     password_actual: str
     password_nueva: str
+
+class RolBase(BaseModel):
+    nombre_rol: str
+    descripcion: str | None = None
+
+class RolCreate(RolBase):
+    pass
+
+class RolResponse(RolBase):
+    id_rol: int
+
+    class Config:
+        from_attributes = True
+
+class PermisoBase(BaseModel):
+    nombre_permiso: str
+    modulo: str | None = None
+    descripcion: str | None = None
+
+class PermisoCreate(PermisoBase):
+    pass
+
+class PermisoResponse(PermisoBase):
+    id_permiso: int
+
+    class Config:
+        from_attributes = True
