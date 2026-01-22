@@ -13,6 +13,9 @@ load_dotenv()
 # Importar los modelos para que Alembic los detecte
 from shared.database import Base
 from users.infrastructure.models import Usuario, Rol, Permiso, RolPermiso
+from patients.infrastructure.models import Paciente
+from appointments.infrastructure.models import Cita
+from historials.infrastructure.models import HistorialClinico, DocumentoClinico
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
