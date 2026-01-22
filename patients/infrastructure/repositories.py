@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from pacientes.infrastructure.models import Paciente
+from patients.infrastructure.models import Paciente
 
 class PacienteRepository:
     def __init__(self, db: Session):

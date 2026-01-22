@@ -25,7 +25,7 @@ class HistorialRead(BaseModel):
     fecha_ingreso: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 class DocumentoCreate(BaseModel):
     id_historial: int
@@ -42,4 +42,4 @@ class DocumentoRead(BaseModel):
     fecha_subida: datetime
 
     class Config:
-        orm_mode = True
+        from_attributes = True
