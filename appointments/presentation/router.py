@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from shared.database import get_db
-from citas.application.use_cases import CitaService
-from citas.presentation.schemas import CitaCreate, CitaUpdate, CitaRead
+from appointments.application.use_cases import CitaService
+from appointments.presentation.schemas import CitaCreate, CitaUpdate, CitaRead
 from typing import List
 
 router = APIRouter(prefix="/citas", tags=["Citas"])
