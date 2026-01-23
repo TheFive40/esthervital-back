@@ -1,36 +1,157 @@
 from sqlalchemy.orm import Session
-from treatments.infrastructure.models import Tratamiento
-from treatments.infrastructure.repository import TratamientoRepository
-from treatments.presentation.schemas import TratamientoCreate, TratamientoUpdate
+from treatments.infrastructure.models import Tratamiento, SesionTratamiento, ImagenSesion
+from treatments.infrastructure.repository import (
+    TratamientoRepository,
+    SesionRepository,
+    ImagenRepository
+)
+from treatments.presentation.schemas import (
+    TratamientoCreate, TratamientoUpdate, TratamientoResponse, TratamientoDetallado,
+    SesionCreate, SesionUpdate,
+    ImagenCreate, ImagenUpdate
+)
 
-repo = TratamientoRepository()
+tratamiento_repo = TratamientoRepository()
+sesion_repo = SesionRepository()
+imagen_repo = ImagenRepository()
+
 
 def crear_tratamiento(db: Session, data: TratamientoCreate):
     tratamiento = Tratamiento(**data.dict())
-    return repo.create(db, tratamiento)
+    return tratamiento_repo.create(db, tratamiento)
+
 
 def listar_tratamientos(db: Session):
-    return repo.get_all(db)
+    tratamientos = tratamiento_repo.get_all(db)
+    resultado = []
+
+    for trat in tratamientos:
+        sesiones_completadas = sesion_repo.count_by_tratamiento(db, trat.id_tratamiento)
+
+        resultado.append({
+            **trat.__dict__,
+            "sesiones_completadas": sesiones_completadas,
+            "paciente_nombre": f"{trat.paciente.nombre} {trat.paciente.apellido}" if trat.paciente else None,
+            "usuario_nombre": f"{trat.usuario.nombre} {trat.usuario.apellido}" if trat.usuario else None
+        })
+
+    return resultado
+
 
 def obtener_tratamiento(db: Session, id_tratamiento: int):
-    return repo.get_by_id(db, id_tratamiento)
+    return tratamiento_repo.get_by_id(db, id_tratamiento)
+
+
+def obtener_tratamiento_detallado(db: Session, id_tratamiento: int):
+    tratamiento = tratamiento_repo.get_by_id(db, id_tratamiento)
+    if not tratamiento:
+        return None
+
+    sesiones_completadas = sesion_repo.count_by_tratamiento(db, id_tratamiento)
+
+    return {
+        **tratamiento.__dict__,
+        "sesiones_completadas": sesiones_completadas,
+        "paciente_nombre": f"{tratamiento.paciente.nombre} {tratamiento.paciente.apellido}",
+        "usuario_nombre": f"{tratamiento.usuario.nombre} {tratamiento.usuario.apellido}",
+        "sesiones": tratamiento.sesiones
+    }
+
 
 def obtener_tratamientos_por_paciente(db: Session, id_paciente: int):
-    return repo.get_by_paciente(db, id_paciente)
+    tratamientos = tratamiento_repo.get_by_paciente(db, id_paciente)
+    resultado = []
+
+    for trat in tratamientos:
+        sesiones_completadas = sesion_repo.count_by_tratamiento(db, trat.id_tratamiento)
+
+        resultado.append({
+            **trat.__dict__,
+            "sesiones_completadas": sesiones_completadas,
+            "usuario_nombre": f"{trat.usuario.nombre} {trat.usuario.apellido}" if trat.usuario else None
+        })
+
+    return resultado
+
 
 def actualizar_tratamiento(db: Session, id_tratamiento: int, data: TratamientoUpdate):
-    tratamiento = repo.get_by_id(db, id_tratamiento)
+    tratamiento = tratamiento_repo.get_by_id(db, id_tratamiento)
     if not tratamiento:
         return None
 
     for key, value in data.dict(exclude_unset=True).items():
         setattr(tratamiento, key, value)
 
-    return repo.update(db, tratamiento)
+    return tratamiento_repo.update(db, tratamiento)
+
 
 def eliminar_tratamiento(db: Session, id_tratamiento: int):
-    tratamiento = repo.get_by_id(db, id_tratamiento)
+    tratamiento = tratamiento_repo.get_by_id(db, id_tratamiento)
     if not tratamiento:
         return None
-    repo.delete(db, tratamiento)
+    tratamiento_repo.delete(db, tratamiento)
+    return True
+
+
+def crear_sesion(db: Session, data: SesionCreate):
+    sesion = SesionTratamiento(**data.dict())
+    return sesion_repo.create(db, sesion)
+
+
+def listar_sesiones_tratamiento(db: Session, id_tratamiento: int):
+    return sesion_repo.get_by_tratamiento(db, id_tratamiento)
+
+
+def obtener_sesion(db: Session, id_sesion: int):
+    return sesion_repo.get_by_id(db, id_sesion)
+
+
+def actualizar_sesion(db: Session, id_sesion: int, data: SesionUpdate):
+    sesion = sesion_repo.get_by_id(db, id_sesion)
+    if not sesion:
+        return None
+
+    for key, value in data.dict(exclude_unset=True).items():
+        setattr(sesion, key, value)
+
+    return sesion_repo.update(db, sesion)
+
+
+def eliminar_sesion(db: Session, id_sesion: int):
+    sesion = sesion_repo.get_by_id(db, id_sesion)
+    if not sesion:
+        return None
+    sesion_repo.delete(db, sesion)
+    return True
+
+
+def crear_imagen(db: Session, data: ImagenCreate):
+    imagen = ImagenSesion(**data.dict())
+    return imagen_repo.create(db, imagen)
+
+
+def listar_imagenes_sesion(db: Session, id_sesion: int):
+    return imagen_repo.get_by_sesion(db, id_sesion)
+
+
+def obtener_imagen(db: Session, id_imagen: int):
+    return imagen_repo.get_by_id(db, id_imagen)
+
+
+def actualizar_imagen(db: Session, id_imagen: int, data: ImagenUpdate):
+    imagen = imagen_repo.get_by_id(db, id_imagen)
+    if not imagen:
+        return None
+
+    for key, value in data.dict(exclude_unset=True).items():
+        setattr(imagen, key, value)
+
+    return imagen_repo.update(db, imagen)
+
+
+def eliminar_imagen(db: Session, id_imagen: int):
+    imagen = imagen_repo.get_by_id(db, id_imagen)
+    if not imagen:
+        return None
+    imagen_repo.delete(db, imagen)
     return True
