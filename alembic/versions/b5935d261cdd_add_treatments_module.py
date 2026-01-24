@@ -41,7 +41,7 @@ def upgrade() -> None:
     op.drop_column('sesiones_tratamiento', 'fecha_actualizacion')
     op.drop_column('sesiones_tratamiento', 'id_empleado')
     op.drop_column('sesiones_tratamiento', 'productos_utilizados')
-    op.add_column('tratamientos', sa.Column('id_usuario', sa.Integer(), nullable=False))
+    op.add_column('tratamientos', sa.Column('id_usuario', sa.Integer(), nullable=False, server_default='3'))
     op.alter_column('tratamientos', 'sesiones_planificadas',
                existing_type=sa.INTEGER(),
                nullable=False,
