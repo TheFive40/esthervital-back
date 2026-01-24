@@ -6,16 +6,16 @@ class PacienteCreate(BaseModel):
     nombre: str
     apellido: str
     fecha_nacimiento: date
-    edad: Optional[int]
-    peso_kg: Optional[float]
+    edad: Optional[int] = None
+    peso_kg: Optional[float] = None
 
-    telefono: Optional[str]
-    email: Optional[EmailStr]
-    direccion: Optional[str]
-    ocupacion: Optional[str]
+    telefono: Optional[str] = None
+    email: Optional[EmailStr] = None
+    direccion: Optional[str] = None
+    ocupacion: Optional[str] = None
 
-    numero_hijos: Optional[int]
-    tipo_parto: Optional[str]
+    numero_hijos: Optional[int] = None
+    tipo_parto: Optional[str] = None
 
     tipo_identificacion: str
     numero_identificacion: str

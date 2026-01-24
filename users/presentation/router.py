@@ -20,8 +20,27 @@ from users.presentation.schemas import (
 
 # Repositorios (Agregamos los nuevos)
 from users.infrastructure.repositories import UsuarioRepository, RolRepository, PermisoRepository
+from shared.security import get_current_user
 
 router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
+
+@router.get("/me", response_model=UsuarioResponse)
+def get_me(current_user: dict = Depends(get_current_user), db: Session = Depends(get_db)):
+    """Obtener perfil del usuario autenticado actualmente"""
+    # current_user is the decoded JWT payload
+    # In a real app we might query the DB by auth_id (sub) to get the full profile
+    # For now, let's find by email or auth_id if we have it synced
+    repo = UsuarioRepository(db)
+    # Assuming the token has email. Supabase tokens have 'email' claim.
+    email = current_user.get("email")
+    if not email:
+         raise HTTPException(status_code=400, detail="Token inválido")
+    
+    usuario = repo.get_by_email(email)
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuario no encontrado en base de datos")
+    
+    return usuario
 
 # --- ENDPOINT MEJORADO: GET USUARIOS (Todos o Filtro) ---
 # Este va ANTES del POST para mantener orden, pero funciona igual donde sea
@@ -29,7 +48,8 @@ router = APIRouter(prefix="/usuarios", tags=["Usuarios"])
 def obtener_usuarios(
     id: Optional[int] = None, 
     email: Optional[str] = None, 
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_user) # Protected
 ):
     repo = UsuarioRepository(db)
     
