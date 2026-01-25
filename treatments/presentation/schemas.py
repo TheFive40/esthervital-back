@@ -62,7 +62,7 @@ class TratamientoDetallado(TratamientoBase):
 class SesionCreate(BaseModel):
     id_tratamiento: int
     numero_sesion: int
-    fecha_sesion: date
+    fecha_sesion: datetime
     notas: Optional[str] = None
     estado: str = "Completada"
     abdomen_alto_cm: Optional[float] = None
@@ -70,11 +70,12 @@ class SesionCreate(BaseModel):
     abdomen_bajo_cm: Optional[float] = None
     cadera_cm: Optional[float] = None
     peso_kg: Optional[float] = None
+    zonas_trabajadas: Optional[str] = None
 
 
 class SesionUpdate(BaseModel):
     numero_sesion: Optional[int] = None
-    fecha_sesion: Optional[date] = None
+    fecha_sesion: Optional[datetime] = None
     notas: Optional[str] = None
     estado: Optional[str] = None
     abdomen_alto_cm: Optional[float] = None
@@ -82,13 +83,14 @@ class SesionUpdate(BaseModel):
     abdomen_bajo_cm: Optional[float] = None
     cadera_cm: Optional[float] = None
     peso_kg: Optional[float] = None
+    zonas_trabajadas: Optional[str] = None
 
 
 class SesionResponse(BaseModel):
     id_sesion: int
     id_tratamiento: int
     numero_sesion: int
-    fecha_sesion: date
+    fecha_sesion: datetime
     notas: Optional[str]
     estado: str
     abdomen_alto_cm: Optional[float]
@@ -96,6 +98,7 @@ class SesionResponse(BaseModel):
     abdomen_bajo_cm: Optional[float]
     cadera_cm: Optional[float]
     peso_kg: Optional[float]
+    zonas_trabajadas: Optional[str]
     fecha_registro: datetime
     imagenes: List['ImagenResponse'] = []
 

@@ -17,6 +17,11 @@ def crear_historial(historial: HistorialCreate, db: Session = Depends(get_db)):
     nuevo = service.crear_historial(historial.dict())
     return nuevo
 
+@router.get("/", response_model=List[HistorialRead])
+def listar_todos(db: Session = Depends(get_db)):
+    service = HistorialService(db)
+    return service.listar_todos()
+
 @router.get("/paciente/{id_paciente}", response_model=List[HistorialRead])
 def listar_historiales_paciente(id_paciente: int, db: Session = Depends(get_db)):
     service = HistorialService(db)

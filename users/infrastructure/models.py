@@ -1,5 +1,5 @@
 from sqlalchemy import (
-    Integer, String, Text, ForeignKey, DateTime
+    Integer, String, Text, ForeignKey, DateTime, Boolean
 )
 from datetime import datetime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -49,6 +49,7 @@ class Usuario(Base):
     auth_id: Mapped[str] = mapped_column(String(100), nullable=True, unique=True)  # Supabase Auth UID
 
     estado: Mapped[str] = mapped_column(String(20))
+    primer_login: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
     fecha_creacion: Mapped[datetime] = mapped_column(
         DateTime,
         server_default=func.now()
