@@ -20,3 +20,6 @@ bcrypt==4.0.1
 # Utilidades
 python-dotenv>=1.0.0
 requests>=2.28.0
+
+python-jose[cryptography]
+python-multipart
