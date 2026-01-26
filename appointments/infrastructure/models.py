@@ -11,6 +11,7 @@ class Cita(Base):
 
     numero_cita = Column(Integer)  
     fecha = Column(Date, nullable=False)
+    hora = Column(String, nullable=True) # HH:MM format
     procedimiento = Column(String, nullable=False)
 
     abdomen_alto_cm = Column(Numeric(5,2))

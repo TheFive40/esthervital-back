@@ -37,3 +37,6 @@ class HistorialService:
 
     def listar_documentos_historial(self, id_historial: int) -> list[DocumentoClinico]:
         return self.repo.get_documentos_historial(id_historial)
+
+    def listar_todos(self) -> list[HistorialClinico]:
+        return self.repo.get_all()

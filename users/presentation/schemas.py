@@ -16,6 +16,8 @@ class UsuarioResponse(BaseModel):
     apellido: str
     email: EmailStr
     estado: str
+    id_rol: int
+    primer_login: bool = True
     fecha_creacion: datetime
 
     class Config:
@@ -33,6 +35,9 @@ class UsuarioUpdate(BaseModel):
 
 class CambiarPassword(BaseModel):
     password_actual: str
+    password_nueva: str
+
+class CambiarPasswordPrimerLogin(BaseModel):
     password_nueva: str
 
 class RolBase(BaseModel):

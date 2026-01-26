@@ -35,3 +35,6 @@ class HistorialRepository:
 
     def get_documentos_historial(self, id_historial: int) -> list[DocumentoClinico]:
         return self.db.query(DocumentoClinico).filter(DocumentoClinico.id_historial==id_historial).all()
+
+    def get_all(self) -> list[HistorialClinico]:
+        return self.db.query(HistorialClinico).all()

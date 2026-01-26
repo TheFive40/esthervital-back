@@ -15,7 +15,7 @@ class PacienteRepository:
         return self.db.query(Paciente).filter(Paciente.id_paciente == id_paciente).first()
 
     def get_all(self) -> list[Paciente]:
-        return self.db.query(Paciente).filter(Paciente.estado=="Activo").all()
+        return self.db.query(Paciente).all()
 
     def get_by_identificacion(self, numero_identificacion: str) -> Paciente | None:
         return self.db.query(Paciente).filter(Paciente.numero_identificacion==numero_identificacion).first()

@@ -35,6 +35,7 @@ class ChangePasswordUseCase:
             )
 
         usuario.password = pwd_context.hash(data.password_nueva)
+        usuario.primer_login = False  # Mark first login as completed
         self.repository.update(db, usuario)
 
         return {

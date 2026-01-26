@@ -34,7 +34,7 @@ class SesionTratamiento(Base):
     id_tratamiento = Column(Integer, ForeignKey("tratamientos.id_tratamiento"), nullable=False)
 
     numero_sesion = Column(Integer, nullable=False)
-    fecha_sesion = Column(Date, nullable=False)
+    fecha_sesion = Column(DateTime, nullable=False)
 
     notas = Column(Text)
     estado = Column(String(20), default="Completada")
@@ -44,6 +44,7 @@ class SesionTratamiento(Base):
     abdomen_bajo_cm = Column(Integer)
     cadera_cm = Column(Integer)
     peso_kg = Column(Integer)
+    zonas_trabajadas = Column(Text)  # JSON array of body zones
 
     fecha_registro = Column(DateTime(timezone=True), server_default=func.now())
 
