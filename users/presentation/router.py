@@ -20,6 +20,7 @@ from users.application.change_password import ChangePasswordUseCase
 from users.application.delete_usuario import DeleteUsuarioUseCase
 from users.application.use_cases import CrearUsuarioUseCase
 from shared.supabase_client import SupabaseAdminError
+from security.hashing import Hash
 
 # Schemas
 from users.presentation.schemas import (
@@ -116,6 +117,12 @@ async def crear_usuario(
 
     repo = UsuarioRepository(db)
     use_case = CrearUsuarioUseCase(repo)
+
+    # =======================================================
+    # ### CAMBIO AQUÍ: ENCRIPTAR LA CONTRASEÑA ###
+    # Antes de ejecutar el caso de uso, encriptamos el password
+    if data.password:
+        data.password = Hash.bcrypt(data.password)
 
     try:
         nuevo_usuario = use_case.execute(data)
