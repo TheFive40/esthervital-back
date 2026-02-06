@@ -485,6 +485,73 @@ async def listar_documentos_historial(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@router.delete(
+    "/documentos/{id_documento}",
+    status_code=204,
+    dependencies=[Depends(require_permission("update_historial"))]
+)
+async def eliminar_documento(
+        id_documento: int,
+        db: Session = Depends(get_db),
+        current_user: dict = Depends(get_current_user),
+        request: Request = None
+):
+    """
+    Eliminar documento clínico
+    
+    Requiere:
+    - Autenticación
+    - Permiso: update_historial
+    
+    Retorna:
+    - 204 No Content si se eliminó exitosamente
+    - 404 si no se encuentra el documento
+    """
+    client_ip = request.client.host if request.client else current_user.get("ip_address")
+
+    try:
+        service = HistorialService(db)
+        success = service.eliminar_documento(id_documento)
+        
+        if not success:
+            AuditLogger.log_action(
+                user_id=current_user["user_id"],
+                action="delete_documento",
+                resource="documento",
+                resource_id=id_documento,
+                status="failed",
+                details={"error": "Documento not found"},
+                ip_address=client_ip
+            )
+            raise HTTPException(status_code=404, detail="Documento no encontrado")
+
+        # Log successful deletion
+        AuditLogger.log_action(
+            user_id=current_user["user_id"],
+            action="delete_documento",
+            resource="documento",
+            resource_id=id_documento,
+            status="success",
+            ip_address=client_ip
+        )
+
+        return None
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        AuditLogger.log_action(
+            user_id=current_user["user_id"],
+            action="delete_documento",
+            resource="documento",
+            resource_id=id_documento,
+            status="failed",
+            details={"error": str(e)},
+            ip_address=client_ip
+        )
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 # ============ ENDPOINTS ADICIONALES ============
 
 @router.get(

@@ -38,6 +38,13 @@ class HistorialService:
     def listar_documentos_historial(self, id_historial: int) -> list[DocumentoClinico]:
         return self.repo.get_documentos_historial(id_historial)
 
+    def eliminar_documento(self, id_documento: int) -> bool:
+        documento = self.repo.get_documento(id_documento)
+        if not documento:
+            return False
+        self.repo.delete_documento(documento)
+        return True
+
     def listar_todos(self) -> list[HistorialClinico]:
         return self.repo.get_all()
 
