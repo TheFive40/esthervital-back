@@ -14,7 +14,8 @@ from shared.database import Base, engine
 from shared.middleware import (
     RateLimitMiddleware,
     SecurityHeadersMiddleware,
-    RequestLoggingMiddleware
+    RequestLoggingMiddleware,
+    CacheControlMiddleware
 )
 from shared.auth_router import router as auth_router
 
@@ -32,6 +33,7 @@ app = FastAPI(
 Base.metadata.create_all(bind=engine)
 
 app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(CacheControlMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 

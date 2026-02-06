@@ -341,7 +341,7 @@ async def get_audit_log(
     """
     from shared.security_utils import PermissionChecker
 
-    if PermissionChecker.is_admin(current_user["user_id"], db):
+    if PermissionChecker.is_admin(current_user["id_rol"]):
         # Admin sees all logs
         log = AuditLogger.get_audit_log(limit=limit)
     else:

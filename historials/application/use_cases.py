@@ -40,3 +40,7 @@ class HistorialService:
 
     def listar_todos(self) -> list[HistorialClinico]:
         return self.repo.get_all()
+
+    def listar_todos_paginados(self, skip: int = 0, limit: int = 50) -> tuple[list[HistorialClinico], int]:
+        """Get paginated historials. Returns (items, total_count)."""
+        return self.repo.get_paginated(skip, limit)

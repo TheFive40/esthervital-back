@@ -13,9 +13,10 @@ email-validator>=2.0.0
 # Migraciones
 alembic>=1.13.0
 
-# Seguridad (hashing de contraseñas)
+# Seguridad (hashing de contraseñas y JWT)
 passlib[bcrypt]>=1.7.0
 bcrypt==4.0.1
+PyJWT>=2.8.0
 
 # Utilidades
 python-dotenv>=1.0.0

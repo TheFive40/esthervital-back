@@ -38,3 +38,10 @@ class HistorialRepository:
 
     def get_all(self) -> list[HistorialClinico]:
         return self.db.query(HistorialClinico).all()
+
+    def get_paginated(self, skip: int = 0, limit: int = 50) -> tuple[list[HistorialClinico], int]:
+        """Get paginated historials with total count using SQL OFFSET/LIMIT."""
+        query = self.db.query(HistorialClinico)
+        total = query.count()
+        items = query.order_by(HistorialClinico.id_historial.desc()).offset(skip).limit(limit).all()
+        return items, total

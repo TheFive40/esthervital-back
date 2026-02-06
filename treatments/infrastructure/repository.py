@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session, joinedload
-from sqlalchemy import or_, desc
+from sqlalchemy import or_, desc, func
 from treatments.infrastructure.models import Tratamiento, SesionTratamiento, ImagenSesion
 from typing import Optional
 
@@ -117,6 +117,19 @@ class SesionRepository:
         return db.query(SesionTratamiento)\
             .filter_by(id_tratamiento=id_tratamiento, estado="Completada")\
             .count()
+
+    def count_by_tratamientos_batch(self, db: Session, tratamiento_ids: list[int]) -> dict[int, int]:
+        """Batch count completed sessions for multiple treatments in a single query."""
+        if not tratamiento_ids:
+            return {}
+        rows = db.query(
+            SesionTratamiento.id_tratamiento,
+            func.count(SesionTratamiento.id_sesion)
+        ).filter(
+            SesionTratamiento.id_tratamiento.in_(tratamiento_ids),
+            SesionTratamiento.estado == "Completada"
+        ).group_by(SesionTratamiento.id_tratamiento).all()
+        return {tid: cnt for tid, cnt in rows}
 
 
 class ImagenRepository:

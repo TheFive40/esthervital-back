@@ -123,7 +123,7 @@ async def get_current_admin(
     """
     Dependency that ensures user is an administrator
     """
-    if not PermissionChecker.is_admin(current_user["user_id"], db):
+    if not PermissionChecker.is_admin(current_user["id_rol"]):
         # Log unauthorized access attempt
         AuditLogger.log_action(
             user_id=current_user["user_id"],
@@ -149,8 +149,8 @@ async def get_current_employee(
     """
     Dependency that ensures user is an employee or admin
     """
-    if not PermissionChecker.is_employee(current_user["user_id"], db) and \
-            not PermissionChecker.is_admin(current_user["user_id"], db):
+    if not PermissionChecker.is_employee(current_user["id_rol"]) and \
+            not PermissionChecker.is_admin(current_user["id_rol"]):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Employee or higher access required"
@@ -169,7 +169,7 @@ def require_permission(permission: str):
             current_user: dict = Depends(get_current_user),
             db: Session = Depends(get_db)
     ) -> dict:
-        if not PermissionChecker.has_permission(current_user["user_id"], permission, db):
+        if not PermissionChecker.has_permission(current_user["id_rol"], permission):
             # Log unauthorized access attempt
             AuditLogger.log_action(
                 user_id=current_user["user_id"],
@@ -199,7 +199,7 @@ def require_any_permission(permissions: List[str]):
             current_user: dict = Depends(get_current_user),
             db: Session = Depends(get_db)
     ) -> dict:
-        if not PermissionChecker.has_any_permission(current_user["user_id"], permissions, db):
+        if not PermissionChecker.has_any_permission(current_user["id_rol"], permissions):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"One of these permissions required: {', '.join(permissions)}"
@@ -219,7 +219,7 @@ def require_all_permissions(permissions: List[str]):
             current_user: dict = Depends(get_current_user),
             db: Session = Depends(get_db)
     ) -> dict:
-        if not PermissionChecker.has_all_permissions(current_user["user_id"], permissions, db):
+        if not PermissionChecker.has_all_permissions(current_user["id_rol"], permissions):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=f"All these permissions required: {', '.join(permissions)}"
@@ -267,7 +267,7 @@ async def verify_resource_ownership(
     Verify that the current user owns the resource or is an admin
     """
     if current_user["user_id"] != resource_owner_id:
-        if not PermissionChecker.is_admin(current_user["user_id"], db):
+        if not PermissionChecker.is_admin(current_user["id_rol"]):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="You don't have permission to access this resource"

@@ -6,12 +6,8 @@ import jwt
 from datetime import datetime, timedelta
 from typing import Optional, Dict, List
 from fastapi import HTTPException, status
-from sqlalchemy.orm import Session
 import os
 import requests
-
-from users.infrastructure.models import Usuario
-from users.infrastructure.repositories import UsuarioRepository
 
 
 class TokenManager:
@@ -163,68 +159,32 @@ class PermissionChecker:
     }
 
     @staticmethod
-    def has_permission(user_id: int, permission: str, db: Session) -> bool:
-        """Check if user has specific permission"""
-        repo = UsuarioRepository(db)
-        usuario = repo.get_by_id(db, user_id)
-
-        if not usuario:
-            return False
-
-        role_id = usuario.id_rol
+    def has_permission(role_id: int, permission: str) -> bool:
+        """Check if role has specific permission (no DB query needed)"""
         permissions = PermissionChecker.ROLE_PERMISSIONS.get(role_id, [])
-
         return permission in permissions
 
     @staticmethod
-    def has_any_permission(user_id: int, permissions: List[str], db: Session) -> bool:
-        """Check if user has any of the permissions"""
-        repo = UsuarioRepository(db)
-        usuario = repo.get_by_id(db, user_id)
-
-        if not usuario:
-            return False
-
-        role_id = usuario.id_rol
+    def has_any_permission(role_id: int, permissions: List[str]) -> bool:
+        """Check if role has any of the permissions (no DB query needed)"""
         user_permissions = PermissionChecker.ROLE_PERMISSIONS.get(role_id, [])
-
         return any(p in user_permissions for p in permissions)
 
     @staticmethod
-    def has_all_permissions(user_id: int, permissions: List[str], db: Session) -> bool:
-        """Check if user has all permissions"""
-        repo = UsuarioRepository(db)
-        usuario = repo.get_by_id(db, user_id)
-
-        if not usuario:
-            return False
-
-        role_id = usuario.id_rol
+    def has_all_permissions(role_id: int, permissions: List[str]) -> bool:
+        """Check if role has all permissions (no DB query needed)"""
         user_permissions = PermissionChecker.ROLE_PERMISSIONS.get(role_id, [])
-
         return all(p in user_permissions for p in permissions)
 
     @staticmethod
-    def is_admin(user_id: int, db: Session) -> bool:
-        """Check if user is administrator"""
-        repo = UsuarioRepository(db)
-        usuario = repo.get_by_id(db, user_id)
-
-        if not usuario:
-            return False
-
-        return usuario.id_rol == 1
+    def is_admin(role_id: int) -> bool:
+        """Check if role is administrator (no DB query needed)"""
+        return role_id == 1
 
     @staticmethod
-    def is_employee(user_id: int, db: Session) -> bool:
-        """Check if user is employee"""
-        repo = UsuarioRepository(db)
-        usuario = repo.get_by_id(db, user_id)
-
-        if not usuario:
-            return False
-
-        return usuario.id_rol == 2
+    def is_employee(role_id: int) -> bool:
+        """Check if role is employee (no DB query needed)"""
+        return role_id == 2
 
 
 class AuditLogger:

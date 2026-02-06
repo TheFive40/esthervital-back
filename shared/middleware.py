@@ -93,6 +93,43 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
+class CacheControlMiddleware(BaseHTTPMiddleware):
+    """
+    Middleware para agregar Cache-Control headers basados en el tipo de endpoint.
+    - Roles/permisos: cached 5 min (datos semi-estáticos)
+    - Mutaciones (POST/PUT/DELETE): no-store
+    - GETs de API: no-cache (SWR maneja cache del lado del cliente)
+    """
+
+    CACHEABLE_PATHS = {
+        "/usuarios/roles": 300,       # 5 minutos
+        "/usuarios/permisos": 300,    # 5 minutos
+    }
+
+    async def dispatch(self, request: Request, call_next: Callable) -> Response:
+        response = await call_next(request)
+
+        method = request.method.upper()
+        path = request.url.path.rstrip("/")
+
+        # Mutaciones nunca se cachean
+        if method in ("POST", "PUT", "DELETE", "PATCH"):
+            response.headers["Cache-Control"] = "no-store"
+            return response
+
+        # Paths semi-estáticos con max-age
+        for cacheable_path, max_age in self.CACHEABLE_PATHS.items():
+            if path.endswith(cacheable_path.rstrip("/")):
+                response.headers["Cache-Control"] = f"public, max-age={max_age}, stale-while-revalidate=60"
+                return response
+
+        # GET de API: no-cache (el cliente SWR se encarga del caching)
+        if method == "GET" and ("/usuarios" in path or "/pacientes" in path or "/citas" in path or "/tratamientos" in path or "/historiales" in path):
+            response.headers["Cache-Control"] = "no-cache"
+
+        return response
+
+
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     """
     Middleware para logging de requests y responses

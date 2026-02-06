@@ -56,10 +56,7 @@ async def listar_todos_historiales(
 
     try:
         service = HistorialService(db)
-        historiales = service.listar_todos()
-
-        # Apply pagination
-        historiales = historiales[skip:skip + limit]
+        historiales, total = service.listar_todos_paginados(skip, limit)
 
         # Log access
         AuditLogger.log_action(
@@ -67,7 +64,7 @@ async def listar_todos_historiales(
             action="list_all_historiales",
             resource="historial",
             status="success",
-            details={"count": len(historiales), "skip": skip, "limit": limit},
+            details={"count": len(historiales), "total": total, "skip": skip, "limit": limit},
             ip_address=client_ip
         )
 

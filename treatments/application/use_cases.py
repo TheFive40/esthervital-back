@@ -25,14 +25,16 @@ def crear_tratamiento(db: Session, data: TratamientoCreate):
 def listar_tratamientos(db: Session):
     """Returns all treatments - use listar_tratamientos_paginados for large datasets"""
     tratamientos = tratamiento_repo.get_all(db)
+    
+    # Batch count completed sessions (fixes N+1)
+    trat_ids = [t.id_tratamiento for t in tratamientos]
+    count_map = sesion_repo.count_by_tratamientos_batch(db, trat_ids)
+
     resultado = []
-
     for trat in tratamientos:
-        sesiones_completadas = sesion_repo.count_by_tratamiento(db, trat.id_tratamiento)
-
         resultado.append({
             **trat.__dict__,
-            "sesiones_completadas": sesiones_completadas,
+            "sesiones_completadas": count_map.get(trat.id_tratamiento, 0),
             "paciente_nombre": f"{trat.paciente.nombre} {trat.paciente.apellido}" if trat.paciente else None,
             "usuario_nombre": f"{trat.usuario.nombre} {trat.usuario.apellido}" if trat.usuario else None
         })
@@ -56,13 +58,15 @@ def listar_tratamientos_paginados(
         db, skip, limit, estado, id_paciente, search
     )
     
+    # Batch count completed sessions (fixes N+1)
+    trat_ids = [t.id_tratamiento for t in tratamientos]
+    count_map = sesion_repo.count_by_tratamientos_batch(db, trat_ids)
+
     resultado = []
     for trat in tratamientos:
-        sesiones_completadas = sesion_repo.count_by_tratamiento(db, trat.id_tratamiento)
-
         resultado.append({
             **trat.__dict__,
-            "sesiones_completadas": sesiones_completadas,
+            "sesiones_completadas": count_map.get(trat.id_tratamiento, 0),
             "paciente_nombre": f"{trat.paciente.nombre} {trat.paciente.apellido}" if trat.paciente else None,
             "usuario_nombre": f"{trat.usuario.nombre} {trat.usuario.apellido}" if trat.usuario else None
         })
