@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from datetime import date, datetime
 
 class CitaCreate(BaseModel):
@@ -47,6 +47,18 @@ class CitaRead(BaseModel):
     firma: Optional[str]
     estado: str
     fecha_registro: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PaginatedCitasResponse(BaseModel):
+    """Response model for paginated appointments list"""
+    data: List[CitaRead]
+    total: int
+    page: int
+    limit: int
+    total_pages: int
 
     class Config:
         from_attributes = True

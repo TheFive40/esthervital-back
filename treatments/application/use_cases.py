@@ -10,6 +10,7 @@ from treatments.presentation.schemas import (
     SesionCreate, SesionUpdate,
     ImagenCreate, ImagenUpdate
 )
+from typing import Optional
 
 tratamiento_repo = TratamientoRepository()
 sesion_repo = SesionRepository()
@@ -22,6 +23,7 @@ def crear_tratamiento(db: Session, data: TratamientoCreate):
 
 
 def listar_tratamientos(db: Session):
+    """Returns all treatments - use listar_tratamientos_paginados for large datasets"""
     tratamientos = tratamiento_repo.get_all(db)
     resultado = []
 
@@ -36,6 +38,36 @@ def listar_tratamientos(db: Session):
         })
 
     return resultado
+
+
+def listar_tratamientos_paginados(
+    db: Session,
+    skip: int = 0,
+    limit: int = 50,
+    estado: Optional[str] = None,
+    id_paciente: Optional[int] = None,
+    search: Optional[str] = None
+) -> tuple[list, int]:
+    """
+    Get paginated treatments with filtering.
+    Returns: (list of treatments with computed fields, total count)
+    """
+    tratamientos, total = tratamiento_repo.get_paginated(
+        db, skip, limit, estado, id_paciente, search
+    )
+    
+    resultado = []
+    for trat in tratamientos:
+        sesiones_completadas = sesion_repo.count_by_tratamiento(db, trat.id_tratamiento)
+
+        resultado.append({
+            **trat.__dict__,
+            "sesiones_completadas": sesiones_completadas,
+            "paciente_nombre": f"{trat.paciente.nombre} {trat.paciente.apellido}" if trat.paciente else None,
+            "usuario_nombre": f"{trat.usuario.nombre} {trat.usuario.apellido}" if trat.usuario else None
+        })
+
+    return resultado, total
 
 
 def obtener_tratamiento(db: Session, id_tratamiento: int):

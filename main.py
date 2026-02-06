@@ -9,7 +9,6 @@ from patients.presentation.router import router as pacientes_router
 from historials.presentation.router import router as historiales_router
 from appointments.presentation.router import router as citas_router
 from treatments.presentation.router import router as tratamientos_router
-from user.presentation.auth import auth_router
 
 from shared.database import Base, engine
 from shared.middleware import (

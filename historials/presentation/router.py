@@ -28,6 +28,63 @@ router = APIRouter(prefix="/historiales", tags=["Historiales Clínicos"])
 
 # ============ HISTORIALES ENDPOINTS ============
 
+@router.get(
+    "/",
+    response_model=List[HistorialRead],
+    dependencies=[Depends(require_permission("read_historial"))]
+)
+async def listar_todos_historiales(
+        skip: int = 0,
+        limit: int = 50,
+        db: Session = Depends(get_db),
+        current_user: dict = Depends(get_current_user),
+        request: Request = None
+):
+    """
+    Listar todos los historiales clínicos
+
+    Requiere:
+    - Autenticación
+    - Permiso: read_historial
+
+    Query params:
+    - skip: Número de registros a saltar (default: 0)
+    - limit: Máximo de registros a retornar (default: 50, max: 100)
+    """
+    limit = min(limit, 100)
+    client_ip = request.client.host if request.client else current_user.get("ip_address")
+
+    try:
+        service = HistorialService(db)
+        historiales = service.listar_todos()
+
+        # Apply pagination
+        historiales = historiales[skip:skip + limit]
+
+        # Log access
+        AuditLogger.log_action(
+            user_id=current_user["user_id"],
+            action="list_all_historiales",
+            resource="historial",
+            status="success",
+            details={"count": len(historiales), "skip": skip, "limit": limit},
+            ip_address=client_ip
+        )
+
+        return historiales
+
+    except Exception as e:
+        AuditLogger.log_action(
+            user_id=current_user["user_id"],
+            action="list_all_historiales",
+            resource="historial",
+            status="failed",
+            details={"error": str(e)},
+            ip_address=client_ip
+        )
+        raise HTTPException(status_code=400, detail=str(e))
+
+
 @router.post(
     "/",
     response_model=HistorialRead,

@@ -1,5 +1,7 @@
 from sqlalchemy.orm import Session, joinedload
+from sqlalchemy import or_, desc
 from treatments.infrastructure.models import Tratamiento, SesionTratamiento, ImagenSesion
+from typing import Optional
 
 class TratamientoRepository:
 
@@ -10,11 +12,51 @@ class TratamientoRepository:
         return tratamiento
 
     def get_all(self, db: Session):
+        """Returns all treatments - use get_paginated for large datasets"""
         return db.query(Tratamiento)\
             .options(joinedload(Tratamiento.paciente))\
             .options(joinedload(Tratamiento.usuario))\
             .options(joinedload(Tratamiento.sesiones))\
             .all()
+
+    def get_paginated(
+        self,
+        db: Session,
+        skip: int = 0,
+        limit: int = 50,
+        estado: Optional[str] = None,
+        id_paciente: Optional[int] = None,
+        search: Optional[str] = None
+    ) -> tuple[list, int]:
+        """
+        Get paginated treatments with filtering.
+        Returns: (list of treatments, total count)
+        """
+        query = db.query(Tratamiento)\
+            .options(joinedload(Tratamiento.paciente))\
+            .options(joinedload(Tratamiento.usuario))\
+            .options(joinedload(Tratamiento.sesiones))
+        
+        # Filter by status if provided
+        if estado:
+            query = query.filter(Tratamiento.estado == estado)
+        
+        # Filter by patient if provided
+        if id_paciente:
+            query = query.filter(Tratamiento.id_paciente == id_paciente)
+        
+        # Search by treatment name
+        if search:
+            search_term = f"%{search}%"
+            query = query.filter(Tratamiento.nombre_tratamiento.ilike(search_term))
+        
+        # Get total count BEFORE pagination
+        total = query.count()
+        
+        # Apply pagination with ORDER BY for consistent results
+        treatments = query.order_by(desc(Tratamiento.fecha_inicio)).offset(skip).limit(limit).all()
+        
+        return treatments, total
 
     def get_by_id(self, db: Session, id_tratamiento: int):
         return db.query(Tratamiento)\

@@ -8,6 +8,7 @@ from typing import Optional, Dict, List
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 import os
+import requests
 
 from users.infrastructure.models import Usuario
 from users.infrastructure.repositories import UsuarioRepository
@@ -20,6 +21,10 @@ class TokenManager:
     ALGORITHM = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES = 480  # 8 hours
     REFRESH_TOKEN_EXPIRE_DAYS = 7
+    
+    # Supabase configuration
+    SUPABASE_URL = os.getenv("SUPABASE_URL", "")
+    SUPABASE_ANON_KEY = os.getenv("SUPABASE_ANON_KEY", "")
 
     @classmethod
     def create_access_token(cls, user_id: int, email: str, role_id: int) -> str:
@@ -46,12 +51,41 @@ class TokenManager:
         return jwt.encode(payload, cls.SECRET_KEY, algorithm=cls.ALGORITHM)
 
     @classmethod
+    def verify_supabase_token(cls, token: str) -> Dict:
+        """Verify token with Supabase and get user info"""
+        try:
+            # Call Supabase to verify the token and get user data
+            response = requests.get(
+                f"{cls.SUPABASE_URL}/auth/v1/user",
+                headers={
+                    "Authorization": f"Bearer {token}",
+                    "apikey": cls.SUPABASE_ANON_KEY
+                },
+                timeout=10
+            )
+            
+            if response.status_code == 200:
+                user_data = response.json()
+                return {
+                    "sub": user_data.get("id"),  # Supabase user UUID
+                    "email": user_data.get("email"),
+                    "type": "supabase",
+                    "supabase_user": user_data
+                }
+            else:
+                return None
+        except Exception as e:
+            print(f"Supabase token verification error: {e}")
+            return None
+
+    @classmethod
     def verify_token(cls, token: str, token_type: str = "access") -> Dict:
-        """Verify and decode JWT token"""
+        """Verify and decode JWT token (supports both local and Supabase tokens)"""
+        # First try to decode as local JWT
         try:
             payload = jwt.decode(token, cls.SECRET_KEY, algorithms=[cls.ALGORITHM])
 
-            if payload.get("type") != token_type:
+            if token_type != "refresh" and payload.get("type") != token_type:
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Token type inválido"
@@ -64,6 +98,12 @@ class TokenManager:
                 detail="Token expirado"
             )
         except jwt.InvalidTokenError:
+            # Token is not a valid local JWT, try Supabase
+            if cls.SUPABASE_URL and cls.SUPABASE_ANON_KEY:
+                supabase_payload = cls.verify_supabase_token(token)
+                if supabase_payload:
+                    return supabase_payload
+            
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Token inválido"

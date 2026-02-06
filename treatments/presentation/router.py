@@ -5,9 +5,11 @@ from treatments.application import use_cases
 from treatments.presentation.schemas import (
     TratamientoCreate, TratamientoUpdate, TratamientoResponse, TratamientoDetallado,
     SesionCreate, SesionUpdate, SesionResponse,
-    ImagenCreate, ImagenUpdate, ImagenResponse
+    ImagenCreate, ImagenUpdate, ImagenResponse,
+    PaginatedTratamientosResponse
 )
-from typing import List
+from typing import List, Optional
+import math
 
 router = APIRouter(
     prefix="/tratamientos",
@@ -19,9 +21,39 @@ def crear_tratamiento(data: TratamientoCreate, db: Session = Depends(get_db)):
     return use_cases.crear_tratamiento(db, data)
 
 
-@router.get("/", response_model=List[TratamientoResponse])
-def listar_tratamientos(db: Session = Depends(get_db)):
-    return use_cases.listar_tratamientos(db)
+@router.get("/", response_model=PaginatedTratamientosResponse)
+def listar_tratamientos(
+    page: int = 1,
+    limit: int = 50,
+    estado: Optional[str] = None,
+    search: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    """
+    Listar todos los tratamientos (con paginación optimizada a nivel SQL)
+    
+    Query params:
+    - page: Número de página (default: 1)
+    - limit: Máximo de registros a retornar (default: 50, max: 100)
+    - estado: Filtrar por estado (Activo/Finalizado/Cancelado)
+    - search: Buscar por nombre del tratamiento
+    """
+    limit = min(limit, 100)
+    skip = (page - 1) * limit
+    
+    tratamientos, total = use_cases.listar_tratamientos_paginados(
+        db, skip, limit, estado, None, search
+    )
+    
+    total_pages = math.ceil(total / limit) if limit > 0 else 0
+    
+    return PaginatedTratamientosResponse(
+        data=tratamientos,
+        total=total,
+        page=page,
+        limit=limit,
+        total_pages=total_pages
+    )
 
 
 @router.get("/{id_tratamiento}", response_model=TratamientoDetallado)

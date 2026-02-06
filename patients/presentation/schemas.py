@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from typing import Optional
+from typing import Optional, List, Generic, TypeVar
 from datetime import date, datetime
 
 class PacienteCreate(BaseModel):
@@ -60,6 +60,18 @@ class PacienteRead(BaseModel):
     numero_identificacion: str
     estado: str
     fecha_registro: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PaginatedPacientesResponse(BaseModel):
+    """Response model for paginated patients list"""
+    data: List[PacienteRead]
+    total: int
+    page: int
+    limit: int
+    total_pages: int
 
     class Config:
         from_attributes = True

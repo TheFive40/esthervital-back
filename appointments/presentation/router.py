@@ -5,8 +5,9 @@ Incluye autenticación, autorización, rate limiting y auditoría
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
-from typing import List
-from datetime import datetime
+from typing import List, Optional
+from datetime import datetime, date
+import math
 
 from shared.database import get_db
 from shared.dependencies import (
@@ -18,7 +19,7 @@ from shared.dependencies import (
 from shared.security_utils import AuditLogger
 
 from appointments.application.use_cases import CitaService
-from appointments.presentation.schemas import CitaCreate, CitaUpdate, CitaRead
+from appointments.presentation.schemas import CitaCreate, CitaUpdate, CitaRead, PaginatedCitasResponse
 
 router = APIRouter(prefix="/citas", tags=["Citas"])
 
@@ -96,50 +97,57 @@ async def crear_cita(
 
 @router.get(
     "/",
-    response_model=List[CitaRead],
+    response_model=PaginatedCitasResponse,
     dependencies=[Depends(require_permission("read_appointment"))]
 )
 async def listar_citas(
-        skip: int = 0,
+        page: int = 1,
         limit: int = 50,
-        estado: str = None,
-        fecha: str = None,
+        estado: Optional[str] = None,
+        fecha: Optional[str] = None,
         db: Session = Depends(get_db),
         current_user: dict = Depends(get_current_user),
         request: Request = None
 ):
     """
-    Listar todas las citas (con paginación y filtros)
+    Listar todas las citas (con paginación optimizada a nivel SQL)
 
     Requiere:
     - Autenticación
     - Permiso: read_appointment
 
     Query params:
-    - skip: Número de registros a saltar (default: 0)
+    - page: Número de página (default: 1)
     - limit: Máximo de registros a retornar (default: 50, max: 100)
-    - estado: Filtrar por estado (Programada/Realizada/Cancelada)
+    - estado: Filtrar por estado (Pendiente/Completada/Cancelada)
     - fecha: Filtrar por fecha (YYYY-MM-DD)
     """
     # Límite máximo de registros
     limit = min(limit, 100)
+    skip = (page - 1) * limit
 
     client_ip = request.client.host if request.client else current_user.get("ip_address")
 
     try:
         service = CitaService(db)
-        citas = service.listar_citas()
-
-        # Filtrar por estado si se proporciona
-        if estado:
-            citas = [c for c in citas if c.estado == estado]
-
-        # Filtrar por fecha si se proporciona
+        
+        # Parse date if provided
+        fecha_parsed = None
         if fecha:
-            citas = [c for c in citas if str(c.fecha) == fecha]
-
-        # Apply pagination
-        citas = citas[skip:skip + limit]
+            try:
+                fecha_parsed = date.fromisoformat(fecha)
+            except ValueError:
+                pass
+        
+        # Use optimized paginated query (SQL level pagination)
+        citas, total = service.listar_citas_paginadas(
+            skip=skip,
+            limit=limit,
+            estado=estado,
+            fecha=fecha_parsed
+        )
+        
+        total_pages = math.ceil(total / limit) if limit > 0 else 0
 
         # Log access
         AuditLogger.log_action(
@@ -149,15 +157,22 @@ async def listar_citas(
             status="success",
             details={
                 "count": len(citas),
-                "skip": skip,
+                "page": page,
                 "limit": limit,
+                "total": total,
                 "estado_filter": estado,
                 "fecha_filter": fecha
             },
             ip_address=client_ip
         )
 
-        return citas
+        return PaginatedCitasResponse(
+            data=citas,
+            total=total,
+            page=page,
+            limit=limit,
+            total_pages=total_pages
+        )
 
     except Exception as e:
         AuditLogger.log_action(

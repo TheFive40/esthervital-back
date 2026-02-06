@@ -46,3 +46,7 @@ build/
 dist/
 *.egg-info/
 .eggs/
+
+# Agent configuration
+.agent/
+.agents/

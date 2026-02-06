@@ -71,6 +71,7 @@ class SesionCreate(BaseModel):
     cadera_cm: Optional[float] = None
     peso_kg: Optional[float] = None
     zonas_trabajadas: Optional[str] = None
+    tipo_cuerpo: Optional[str] = None
 
 
 class SesionUpdate(BaseModel):
@@ -84,6 +85,7 @@ class SesionUpdate(BaseModel):
     cadera_cm: Optional[float] = None
     peso_kg: Optional[float] = None
     zonas_trabajadas: Optional[str] = None
+    tipo_cuerpo: Optional[str] = None
 
 
 class SesionResponse(BaseModel):
@@ -99,6 +101,7 @@ class SesionResponse(BaseModel):
     cadera_cm: Optional[float]
     peso_kg: Optional[float]
     zonas_trabajadas: Optional[str]
+    tipo_cuerpo: Optional[str]
     fecha_registro: datetime
     imagenes: List['ImagenResponse'] = []
 
@@ -126,6 +129,18 @@ class ImagenResponse(BaseModel):
     descripcion: Optional[str]
     tipo_imagen: Optional[str]
     fecha_subida: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class PaginatedTratamientosResponse(BaseModel):
+    """Response model for paginated treatments list"""
+    data: List[TratamientoResponse]
+    total: int
+    page: int
+    limit: int
+    total_pages: int
 
     class Config:
         from_attributes = True

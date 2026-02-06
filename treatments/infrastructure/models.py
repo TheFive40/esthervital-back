@@ -45,6 +45,7 @@ class SesionTratamiento(Base):
     cadera_cm = Column(Integer)
     peso_kg = Column(Integer)
     zonas_trabajadas = Column(Text)  # JSON array of body zones
+    tipo_cuerpo = Column(String(10))  # 'male' or 'female' for muscle map
 
     fecha_registro = Column(DateTime(timezone=True), server_default=func.now())
 

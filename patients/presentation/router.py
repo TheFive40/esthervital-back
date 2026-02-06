@@ -7,6 +7,7 @@ para incluir autenticación, autorización y rate limiting
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 from typing import List, Optional
+import math
 
 from shared.database import get_db
 from shared.dependencies import (
@@ -19,7 +20,7 @@ from shared.dependencies import (
 from shared.security_utils import AuditLogger
 
 from patients.application.use_cases import PacienteService
-from patients.presentation.schemas import PacienteCreate, PacienteUpdate, PacienteRead
+from patients.presentation.schemas import PacienteCreate, PacienteUpdate, PacienteRead, PaginatedPacientesResponse
 
 router = APIRouter(prefix="/pacientes", tags=["Pacientes"])
 
@@ -86,43 +87,48 @@ async def crear_paciente(
 
 @router.get(
     "/",
-    response_model=List[PacienteRead],
+    response_model=PaginatedPacientesResponse,
     dependencies=[Depends(require_permission("read_patient"))]
 )
 async def listar_pacientes(
-        skip: int = 0,
+        page: int = 1,
         limit: int = 50,
         estado: Optional[str] = None,
+        search: Optional[str] = None,
         db: Session = Depends(get_db),
         current_user: dict = Depends(get_current_user),
         request: Request = None
 ):
     """
-    Listar todos los pacientes (con paginación)
+    Listar todos los pacientes (con paginación optimizada a nivel SQL)
 
     Requiere:
     - Autenticación
     - Permiso: read_patient
 
     Query params:
-    - skip: Número de registros a saltar (default: 0)
+    - page: Número de página (default: 1)
     - limit: Máximo de registros a retornar (default: 50, max: 100)
     - estado: Filtrar por estado (Activo/Inactivo)
+    - search: Buscar por nombre, apellido o identificación
     """
     # Límite máximo de registros
     limit = min(limit, 100)
+    skip = (page - 1) * limit
 
     client_ip = request.client.host if request.client else current_user.get("ip_address")
 
     service = PacienteService(db)
-    pacientes = service.listar_pacientes()
-
-    # Filter by status if provided
-    if estado:
-        pacientes = [p for p in pacientes if p.estado == estado]
-
-    # Apply pagination
-    pacientes = pacientes[skip:skip + limit]
+    
+    # Use optimized paginated query (SQL level pagination)
+    pacientes, total = service.listar_pacientes_paginados(
+        skip=skip,
+        limit=limit,
+        estado=estado,
+        search=search
+    )
+    
+    total_pages = math.ceil(total / limit) if limit > 0 else 0
 
     # Log access
     AuditLogger.log_action(
@@ -130,11 +136,17 @@ async def listar_pacientes(
         action="list_patients",
         resource="paciente",
         status="success",
-        details={"count": len(pacientes), "skip": skip, "limit": limit},
+        details={"count": len(pacientes), "page": page, "limit": limit, "total": total},
         ip_address=client_ip
     )
 
-    return pacientes
+    return PaginatedPacientesResponse(
+        data=pacientes,
+        total=total,
+        page=page,
+        limit=limit,
+        total_pages=total_pages
+    )
 
 
 @router.get(

@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from patients.infrastructure.models import Paciente
 from patients.infrastructure.repositories import PacienteRepository
+from typing import Optional
 
 class PacienteService:
     def __init__(self, db: Session):
@@ -11,7 +12,21 @@ class PacienteService:
         return self.repo.create(paciente)
 
     def listar_pacientes(self) -> list[Paciente]:
+        """Returns all patients - use listar_pacientes_paginados for large datasets"""
         return self.repo.get_all()
+
+    def listar_pacientes_paginados(
+        self,
+        skip: int = 0,
+        limit: int = 50,
+        estado: Optional[str] = None,
+        search: Optional[str] = None
+    ) -> tuple[list[Paciente], int]:
+        """
+        Get paginated patients with filtering.
+        Returns: (list of patients, total count)
+        """
+        return self.repo.get_paginated(skip, limit, estado, search)
 
     def obtener_paciente(self, id_paciente: int) -> Paciente | None:
         return self.repo.get_by_id(id_paciente)

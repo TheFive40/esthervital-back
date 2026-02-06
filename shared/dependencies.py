@@ -19,6 +19,7 @@ async def get_current_user(
     """
     Get current authenticated user from JWT token
     Validates token and checks rate limits
+    Supports both local JWT tokens and Supabase tokens
     """
     # Extract token from Authorization header
     auth_header = request.headers.get("Authorization")
@@ -45,9 +46,33 @@ async def get_current_user(
             headers={"WWW-Authenticate": "Bearer"}
         )
 
-    # Verify token
+    # Verify token (supports both local and Supabase tokens)
     payload = TokenManager.verify_token(token)
-    user_id = int(payload.get("sub"))
+    
+    repo = UsuarioRepository(db)
+    usuario = None
+    user_id = None
+    
+    # Check if token is from Supabase (has "supabase_user" key) or local
+    if payload.get("type") == "supabase":
+        # Supabase token - find user by email
+        email = payload.get("email")
+        if email:
+            usuario = repo.get_by_email(email.lower())
+            if usuario:
+                user_id = usuario.id_usuario
+    else:
+        # Local token - find user by ID
+        user_id = int(payload.get("sub"))
+        usuario = repo.get_by_id(db, user_id)
+
+    if not usuario:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found in database"
+        )
+    
+    user_id = usuario.id_usuario
 
     # Check user rate limit
     allowed, info = USER_LIMITER.is_allowed(f"user:{user_id}")
@@ -63,16 +88,6 @@ async def get_current_user(
             }
         )
 
-    # Get user from database
-    repo = UsuarioRepository(db)
-    usuario = repo.get_by_id(db, user_id)
-
-    if not usuario:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found"
-        )
-
     if usuario.estado != "Activo":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -83,7 +98,7 @@ async def get_current_user(
     client_ip = request.client.host if request.client else "unknown"
     AuditLogger.log_action(
         user_id=user_id,
-        action="login_attempt",
+        action="request_authenticated",
         resource="auth",
         status="success",
         ip_address=client_ip
