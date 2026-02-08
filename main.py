@@ -54,7 +54,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth_router, prefix="/auth", tags=["Authentication"])
+app.include_router(auth_router)
 app.include_router(usuarios_router)
 app.include_router(pacientes_router)
 app.include_router(historiales_router)

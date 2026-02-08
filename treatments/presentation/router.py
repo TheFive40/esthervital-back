@@ -1,6 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from shared.database import get_db
+from shared.dependencies import (
+    get_current_user,
+    get_current_admin,
+    get_current_employee,
+)
 from treatments.application import use_cases
 from treatments.presentation.schemas import (
     TratamientoCreate, TratamientoUpdate, TratamientoResponse, TratamientoDetallado,
@@ -17,7 +22,11 @@ router = APIRouter(
 )
 
 @router.post("/", response_model=TratamientoResponse)
-def crear_tratamiento(data: TratamientoCreate, db: Session = Depends(get_db)):
+def crear_tratamiento(
+    data: TratamientoCreate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_employee)
+):
     return use_cases.crear_tratamiento(db, data)
 
 
@@ -27,7 +36,8 @@ def listar_tratamientos(
     limit: int = 50,
     estado: Optional[str] = None,
     search: Optional[str] = None,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_employee)
 ):
     """
     Listar todos los tratamientos (con paginación optimizada a nivel SQL)
@@ -57,7 +67,11 @@ def listar_tratamientos(
 
 
 @router.get("/{id_tratamiento}", response_model=TratamientoDetallado)
-def obtener_tratamiento_detallado(id_tratamiento: int, db: Session = Depends(get_db)):
+def obtener_tratamiento_detallado(
+    id_tratamiento: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_employee)
+):
     tratamiento = use_cases.obtener_tratamiento_detallado(db, id_tratamiento)
     if not tratamiento:
         raise HTTPException(status_code=404, detail="Tratamiento no encontrado")
@@ -65,7 +79,11 @@ def obtener_tratamiento_detallado(id_tratamiento: int, db: Session = Depends(get
 
 
 @router.get("/paciente/{id_paciente}", response_model=List[TratamientoResponse])
-def listar_tratamientos_paciente(id_paciente: int, db: Session = Depends(get_db)):
+def listar_tratamientos_paciente(
+    id_paciente: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_employee)
+):
     return use_cases.obtener_tratamientos_por_paciente(db, id_paciente)
 
 
@@ -73,7 +91,8 @@ def listar_tratamientos_paciente(id_paciente: int, db: Session = Depends(get_db)
 def actualizar_tratamiento(
     id_tratamiento: int,
     data: TratamientoUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_employee)
 ):
     tratamiento = use_cases.actualizar_tratamiento(db, id_tratamiento, data)
     if not tratamiento:
@@ -82,24 +101,40 @@ def actualizar_tratamiento(
 
 
 @router.delete("/{id_tratamiento}")
-def eliminar_tratamiento(id_tratamiento: int, db: Session = Depends(get_db)):
+def eliminar_tratamiento(
+    id_tratamiento: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin)  # Solo admin puede eliminar
+):
     if not use_cases.eliminar_tratamiento(db, id_tratamiento):
         raise HTTPException(status_code=404, detail="Tratamiento no encontrado")
     return {"message": "Tratamiento eliminado correctamente"}
 
 
 @router.post("/sesiones", response_model=SesionResponse)
-def crear_sesion(data: SesionCreate, db: Session = Depends(get_db)):
+def crear_sesion(
+    data: SesionCreate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_employee)
+):
     return use_cases.crear_sesion(db, data)
 
 
 @router.get("/sesiones/tratamiento/{id_tratamiento}", response_model=List[SesionResponse])
-def listar_sesiones(id_tratamiento: int, db: Session = Depends(get_db)):
+def listar_sesiones(
+    id_tratamiento: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_employee)
+):
     return use_cases.listar_sesiones_tratamiento(db, id_tratamiento)
 
 
 @router.get("/sesiones/{id_sesion}", response_model=SesionResponse)
-def obtener_sesion(id_sesion: int, db: Session = Depends(get_db)):
+def obtener_sesion(
+    id_sesion: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_employee)
+):
     sesion = use_cases.obtener_sesion(db, id_sesion)
     if not sesion:
         raise HTTPException(status_code=404, detail="Sesión no encontrada")
@@ -110,7 +145,8 @@ def obtener_sesion(id_sesion: int, db: Session = Depends(get_db)):
 def actualizar_sesion(
     id_sesion: int,
     data: SesionUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_employee)
 ):
     sesion = use_cases.actualizar_sesion(db, id_sesion, data)
     if not sesion:
@@ -119,25 +155,40 @@ def actualizar_sesion(
 
 
 @router.delete("/sesiones/{id_sesion}")
-def eliminar_sesion(id_sesion: int, db: Session = Depends(get_db)):
+def eliminar_sesion(
+    id_sesion: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin)  # Solo admin
+):
     if not use_cases.eliminar_sesion(db, id_sesion):
         raise HTTPException(status_code=404, detail="Sesión no encontrada")
     return {"message": "Sesión eliminada correctamente"}
 
 
-# ============ IMÁGENES ============
 @router.post("/imagenes", response_model=ImagenResponse)
-def crear_imagen(data: ImagenCreate, db: Session = Depends(get_db)):
+def crear_imagen(
+    data: ImagenCreate,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_employee)
+):
     return use_cases.crear_imagen(db, data)
 
 
 @router.get("/imagenes/sesion/{id_sesion}", response_model=List[ImagenResponse])
-def listar_imagenes_sesion(id_sesion: int, db: Session = Depends(get_db)):
+def listar_imagenes_sesion(
+    id_sesion: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_employee)
+):
     return use_cases.listar_imagenes_sesion(db, id_sesion)
 
 
 @router.get("/imagenes/{id_imagen}", response_model=ImagenResponse)
-def obtener_imagen(id_imagen: int, db: Session = Depends(get_db)):
+def obtener_imagen(
+    id_imagen: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_employee)
+):
     imagen = use_cases.obtener_imagen(db, id_imagen)
     if not imagen:
         raise HTTPException(status_code=404, detail="Imagen no encontrada")
@@ -148,7 +199,8 @@ def obtener_imagen(id_imagen: int, db: Session = Depends(get_db)):
 def actualizar_imagen(
     id_imagen: int,
     data: ImagenUpdate,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_employee)
 ):
     imagen = use_cases.actualizar_imagen(db, id_imagen, data)
     if not imagen:
@@ -157,7 +209,11 @@ def actualizar_imagen(
 
 
 @router.delete("/imagenes/{id_imagen}")
-def eliminar_imagen(id_imagen: int, db: Session = Depends(get_db)):
+def eliminar_imagen(
+    id_imagen: int,
+    db: Session = Depends(get_db),
+    current_user: dict = Depends(get_current_admin)  # Solo admin
+):
     if not use_cases.eliminar_imagen(db, id_imagen):
         raise HTTPException(status_code=404, detail="Imagen no encontrada")
     return {"message": "Imagen eliminada correctamente"}

@@ -44,7 +44,6 @@ class Usuario(Base):
     nombre: Mapped[str] = mapped_column(String(100))
     apellido: Mapped[str] = mapped_column(String(100))
     email: Mapped[str] = mapped_column(String(150), unique=True, nullable=False)
-    email: Mapped[str] = mapped_column(String(150), unique=True, nullable=False)
     password: Mapped[str] = mapped_column(String(255), nullable=True)  # Nullable for Supabase Auth users
     auth_id: Mapped[str] = mapped_column(String(100), nullable=True, unique=True)  # Supabase Auth UID
 

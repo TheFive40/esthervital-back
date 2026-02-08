@@ -20,7 +20,6 @@ from users.application.change_password import ChangePasswordUseCase
 from users.application.delete_usuario import DeleteUsuarioUseCase
 from users.application.use_cases import CrearUsuarioUseCase
 from shared.supabase_client import SupabaseAdminError
-from security.hashing import Hash
 
 # Schemas
 from users.presentation.schemas import (
@@ -117,12 +116,6 @@ async def crear_usuario(
 
     repo = UsuarioRepository(db)
     use_case = CrearUsuarioUseCase(repo)
-
-    # =======================================================
-    # ### CAMBIO AQUÍ: ENCRIPTAR LA CONTRASEÑA ###
-    # Antes de ejecutar el caso de uso, encriptamos el password
-    if data.password:
-        data.password = Hash.bcrypt(data.password)
 
     try:
         nuevo_usuario = use_case.execute(data)
@@ -360,6 +353,21 @@ async def cambiar_password_primer_login(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="El usuario ya cambió su contraseña inicial"
         )
+
+    # Actualizar contraseña en Supabase Auth si el usuario tiene auth_id
+    if usuario.auth_id:
+        from shared.supabase_client import SupabaseClient
+        supabase = SupabaseClient()
+        if supabase.url and supabase.service_role:
+            try:
+                supabase.update_user_password(usuario.auth_id, data.password_nueva)
+            except Exception as e:
+                import logging
+                logging.getLogger(__name__).error(f"Error updating Supabase password: {e}")
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="Error actualizando contraseña en el proveedor de autenticación"
+                )
 
     usuario.password = pwd_context.hash(data.password_nueva)
     usuario.primer_login = False
