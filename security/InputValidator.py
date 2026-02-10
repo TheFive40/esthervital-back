@@ -476,15 +476,13 @@ class SecureFileValidator:
         'all': ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.csv']
     }
 
-    # Límites de tamaño por tipo
     MAX_FILE_SIZE = {
-        'image': 10 * 1024 * 1024,      # 10MB
-        'document': 25 * 1024 * 1024,   # 25MB
-        'spreadsheet': 10 * 1024 * 1024, # 10MB
-        'default': 10 * 1024 * 1024      # 10MB
+        'image': 50 * 1024 * 1024,      # 50MB
+        'document': 50 * 1024 * 1024,   # 50MB
+        'spreadsheet': 25 * 1024 * 1024, # 25MB
+        'default': 50 * 1024 * 1024      # 50MB
     }
 
-    # Magic bytes para validación de tipo real
     MAGIC_BYTES = {
         '.jpg': [b'\xFF\xD8\xFF'],
         '.jpeg': [b'\xFF\xD8\xFF'],
