@@ -1,7 +1,6 @@
 """
-Ejemplo de router protegido: Pacientes
-Este archivo muestra cómo actualizar los routers existentes
-para incluir autenticación, autorización y rate limiting
+Router protegido para Pacientes con seguridad completa
+Incluye: autenticación, autorización, validación de entrada, sanitización, auditoría
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -18,6 +17,8 @@ from shared.dependencies import (
     verify_patient_access
 )
 from shared.security_utils import AuditLogger
+
+from security.InputValidator import InputValidator
 
 from patients.application.use_cases import PacienteService
 from patients.presentation.schemas import PacienteCreate, PacienteUpdate, PacienteRead, PaginatedPacientesResponse
@@ -39,18 +40,6 @@ async def crear_paciente(
         current_user: dict = Depends(get_current_user),
         request: Request = None
 ):
-    """
-    Crear nuevo paciente
-
-    Requiere:
-    - Autenticación (JWT token)
-    - Permiso: create_patient
-    - Rate limit: 50 writes/minuto
-
-    Roles permitidos:
-    - Administrador
-    - Empleado
-    """
     client_ip = request.client.host if request.client else current_user.get("ip_address")
 
     try:
@@ -111,7 +100,68 @@ async def listar_pacientes(
     - limit: Máximo de registros a retornar (default: 50, max: 100)
     - estado: Filtrar por estado (Activo/Inactivo)
     - search: Buscar por nombre, apellido o identificación
+
+    Seguridad mejorada:
+    - ✅ Validación contra SQL injection en búsqueda
+    - ✅ Sanitización del término de búsqueda
+    - ✅ Validación de parámetros de estado
+    - ✅ Rate limiting automático
+    - ✅ Auditoría de accesos
     """
+    # ✅ VALIDAR Y SANITIZAR BÚSQUEDA (PROTECCIÓN SQL INJECTION)
+    if search:
+        try:
+            # Validar contra patrones de SQL injection
+            InputValidator.validate_sql_injection(search)
+
+            # Validar contra XSS
+            InputValidator.validate_xss(search)
+
+            # Validar contra command injection
+            InputValidator.validate_command_injection(search)
+
+        except HTTPException as e:
+            # Si detecta patrón peligroso, logear y rechazar
+            AuditLogger.log_action(
+                user_id=current_user["user_id"],
+                action="search_patient_blocked",
+                resource="paciente",
+                status="blocked",
+                details={
+                    "search_term": search[:100],  # Limitar para logs
+                    "reason": e.detail,
+                    "ip": request.client.host if request.client else "unknown"
+                },
+                ip_address=request.client.host if request.client else "unknown"
+            )
+            raise HTTPException(
+                status_code=400,
+                detail="Invalid search term: potentially dangerous pattern detected"
+            )
+
+        # Sanitizar término de búsqueda
+        search = InputValidator.sanitize_search_term(search)
+
+        # Si después de sanitizar queda vacío, no buscar
+        if not search:
+            search = None
+
+    # ✅ VALIDAR ESTADO (solo valores permitidos)
+    if estado:
+        estado = estado.strip()
+        if estado not in ["Activo", "Inactivo"]:
+            raise HTTPException(
+                status_code=400,
+                detail="Estado debe ser 'Activo' o 'Inactivo'"
+            )
+
+    # ✅ VALIDAR PAGINACIÓN
+    if page < 1:
+        page = 1
+
+    if limit < 1:
+        limit = 1
+
     # Límite máximo de registros
     limit = min(limit, 100)
     skip = (page - 1) * limit
@@ -119,15 +169,16 @@ async def listar_pacientes(
     client_ip = request.client.host if request.client else current_user.get("ip_address")
 
     service = PacienteService(db)
-    
+
     # Use optimized paginated query (SQL level pagination)
+    # El término de búsqueda ya está sanitizado
     pacientes, total = service.listar_pacientes_paginados(
         skip=skip,
         limit=limit,
         estado=estado,
-        search=search
+        search=search  # ✅ Ya sanitizado
     )
-    
+
     total_pages = math.ceil(total / limit) if limit > 0 else 0
 
     # Log access
@@ -136,7 +187,14 @@ async def listar_pacientes(
         action="list_patients",
         resource="paciente",
         status="success",
-        details={"count": len(pacientes), "page": page, "limit": limit, "total": total},
+        details={
+            "count": len(pacientes),
+            "page": page,
+            "limit": limit,
+            "total": total,
+            "search_used": bool(search),
+            "estado_filter": estado
+        },
         ip_address=client_ip
     )
 
@@ -166,7 +224,18 @@ async def obtener_paciente(
     Requiere:
     - Autenticación
     - Permiso: read_patient
+
+    Seguridad:
+    - Validación de ID (debe ser entero positivo)
+    - Auditoría de acceso
     """
+    # ✅ VALIDAR ID
+    if id_paciente < 1:
+        raise HTTPException(
+            status_code=400,
+            detail="ID de paciente inválido"
+        )
+
     client_ip = request.client.host if request.client else current_user.get("ip_address")
 
     service = PacienteService(db)
@@ -212,6 +281,25 @@ async def actualizar_paciente(
         current_user: dict = Depends(get_current_user),
         request: Request = None
 ):
+    """
+    Actualizar información de paciente
+
+    Requiere:
+    - Autenticación
+    - Permiso: update_patient
+    - Rate limit: 50 writes/minuto
+
+    Seguridad:
+    - Validación de ID
+    - Validación de campos en schema
+    - Sanitización automática
+    """
+    # ✅ VALIDAR ID
+    if id_paciente < 1:
+        raise HTTPException(
+            status_code=400,
+            detail="ID de paciente inválido"
+        )
 
     client_ip = request.client.host if request.client else current_user.get("ip_address")
 
@@ -240,8 +328,7 @@ async def actualizar_paciente(
         resource_id=id_paciente,
         status="success",
         details={
-            "nombre": data.nombre,
-            "email": data.email
+            "updated_fields": list(data.dict(exclude_unset=True).keys())
         },
         ip_address=client_ip
     )
@@ -263,6 +350,26 @@ async def eliminar_paciente(
         current_user: dict = Depends(get_current_user),
         request: Request = None
 ):
+    """
+    Eliminar paciente (soft delete)
+
+    Requiere:
+    - Autenticación
+    - Permiso: delete_patient
+    - Rate limit: 50 writes/minuto
+
+    Seguridad:
+    - Validación de ID
+    - Soft delete (no eliminación física)
+    - Auditoría completa
+    """
+    # ✅ VALIDAR ID
+    if id_paciente < 1:
+        raise HTTPException(
+            status_code=400,
+            detail="ID de paciente inválido"
+        )
+
     client_ip = request.client.host if request.client else current_user.get("ip_address")
 
     service = PacienteService(db)
@@ -306,8 +413,47 @@ async def buscar_paciente_por_cc(
     Requiere:
     - Autenticación
     - Permiso: read_patient (implícito)
+
+    Seguridad mejorada:
+    - ✅ Sanitización del número de identificación
+    - ✅ Validación de formato
+    - ✅ Protección contra SQL injection
     """
     client_ip = request.client.host if request.client else current_user.get("ip_address")
+
+    # ✅ VALIDAR Y SANITIZAR número de identificación
+    try:
+        # Validar contra inyecciones
+        InputValidator.validate_sql_injection(numero_identificacion)
+        InputValidator.validate_xss(numero_identificacion)
+
+    except HTTPException as e:
+        AuditLogger.log_action(
+            user_id=current_user["user_id"],
+            action="search_patient_by_id_blocked",
+            resource="paciente",
+            status="blocked",
+            details={"numero_identificacion": numero_identificacion[:50], "reason": e.detail},
+            ip_address=client_ip
+        )
+        raise
+
+    # Sanitizar (solo alfanuméricos y guiones)
+    numero_identificacion = InputValidator.sanitize_string(numero_identificacion, allow_html=False, max_length=20)
+
+    # Validar formato (solo números, letras y guiones)
+    import re
+    if not re.match(r'^[0-9A-Za-z-]+$', numero_identificacion):
+        raise HTTPException(
+            status_code=400,
+            detail="Número de identificación inválido (solo números, letras y guiones permitidos)"
+        )
+
+    if len(numero_identificacion) < 5:
+        raise HTTPException(
+            status_code=400,
+            detail="Número de identificación demasiado corto"
+        )
 
     service = PacienteService(db)
     paciente = service.buscar_por_cc(numero_identificacion)
@@ -315,10 +461,10 @@ async def buscar_paciente_por_cc(
     if not paciente:
         AuditLogger.log_action(
             user_id=current_user["user_id"],
-            action="search_patient",
+            action="search_patient_by_id",
             resource="paciente",
             status="failed",
-            details={"search_by": "numero_identificacion"},
+            details={"search_by": "numero_identificacion", "not_found": True},
             ip_address=client_ip
         )
         raise HTTPException(status_code=404, detail="Paciente no encontrado")
@@ -326,7 +472,7 @@ async def buscar_paciente_por_cc(
     # Log successful search
     AuditLogger.log_action(
         user_id=current_user["user_id"],
-        action="search_patient",
+        action="search_patient_by_id",
         resource="paciente",
         resource_id=paciente.id_paciente,
         status="success",
@@ -351,7 +497,19 @@ async def obtener_estadisticas_paciente(
     """
     Obtener estadísticas completas del paciente
     Incluye: citas, tratamientos, historiales
+
+    Seguridad:
+    - Validación de ID
+    - Verificación de existencia del paciente
+    - Auditoría de acceso a datos sensibles
     """
+    # ✅ VALIDAR ID
+    if id_paciente < 1:
+        raise HTTPException(
+            status_code=400,
+            detail="ID de paciente inválido"
+        )
+
     from appointments.infrastructure.repository import CitaRepository
     from treatments.infrastructure.repository import TratamientoRepository
     from historials.infrastructure.repository import HistorialRepository
@@ -367,7 +525,7 @@ async def obtener_estadisticas_paciente(
 
     # Get repositories
     cita_repo = CitaRepository(db)
-    trat_repo = TratamientoRepository(db)
+    trat_repo = TratamientoRepository()
     hist_repo = HistorialRepository(db)
 
     # Get data
@@ -400,13 +558,18 @@ async def obtener_estadisticas_paciente(
             stats["citas"]["por_estado"][estado] = 0
         stats["citas"]["por_estado"][estado] += 1
 
-    # Log access
+    # Log access to sensitive data
     AuditLogger.log_action(
         user_id=current_user["user_id"],
         action="read_patient_statistics",
         resource="paciente",
         resource_id=id_paciente,
         status="success",
+        details={
+            "citas_count": stats["citas"]["total"],
+            "tratamientos_count": stats["tratamientos"]["total"],
+            "historiales_count": stats["historiales"]["total"]
+        },
         ip_address=client_ip
     )
 
