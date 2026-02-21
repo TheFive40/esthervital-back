@@ -10,6 +10,8 @@ from patients.presentation.router import router as pacientes_router
 from historials.presentation.router import router as historiales_router
 from appointments.presentation.router import router as citas_router
 from treatments.presentation.router import router as tratamientos_router
+from treatments.presentation.payment_router import router as pagos_router
+from patients.presentation.consent_router import router as consentimientos_router
 
 from shared.database import Base, engine
 from shared.middleware import (
@@ -84,6 +86,8 @@ app.include_router(pacientes_router)
 app.include_router(historiales_router)
 app.include_router(citas_router)
 app.include_router(tratamientos_router)
+app.include_router(consentimientos_router)
+app.include_router(pagos_router)             # NUEVO — /pagos
 
 
 @app.get("/")
