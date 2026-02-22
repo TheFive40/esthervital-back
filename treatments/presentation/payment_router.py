@@ -1,5 +1,3 @@
-
-
 from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
@@ -32,6 +30,7 @@ from treatments.presentation.payment_schemas import (
 router = APIRouter(prefix="/pagos", tags=["Pagos y Abonos de Tratamientos"])
 
 
+# ── Catálogos ─────────────────────────────────────────────────────────────────
 
 @router.get(
     "/medios-pago",
@@ -39,9 +38,11 @@ router = APIRouter(prefix="/pagos", tags=["Pagos y Abonos de Tratamientos"])
     dependencies=[Depends(require_permission("read_treatment"))],
 )
 async def listar_medios_pago():
+    """Lista los medios de pago disponibles."""
     return MediosPagoResponse(medios=MEDIOS_PAGO_VALIDOS)
 
 
+# ── Costos ────────────────────────────────────────────────────────────────────
 
 @router.post(
     "/costos/",
@@ -58,7 +59,13 @@ async def registrar_costo(
     current_user: dict = Depends(get_current_user),
     request: Request = None,
 ):
+    """
+    Registra el costo total de un tratamiento.
 
+    **Nota:** Si ya enviaste `costo_total` al crear el tratamiento (`POST /tratamientos/`),
+    no es necesario usar este endpoint. Úsalo solo si olvidaste incluirlo al crear
+    o necesitas registrar el costo de un tratamiento existente.
+    """
     client_ip = request.client.host if request and request.client else current_user.get("ip_address")
 
     try:
@@ -76,10 +83,7 @@ async def registrar_costo(
             resource="costo_tratamiento",
             resource_id=nuevo.id_costo,
             status="success",
-            details={
-                "id_tratamiento": data.id_tratamiento,
-                "costo_total": str(data.costo_total),
-            },
+            details={"id_tratamiento": data.id_tratamiento, "costo_total": str(data.costo_total)},
             ip_address=client_ip,
         )
         return nuevo
@@ -109,7 +113,7 @@ async def obtener_costo_tratamiento(
     current_user: dict = Depends(get_current_user),
     request: Request = None,
 ):
-
+    """Obtiene el costo registrado de un tratamiento."""
     client_ip = request.client.host if request and request.client else current_user.get("ip_address")
     service = CostoTratamientoService(db)
     costo = service.obtener_costo_tratamiento(id_tratamiento)
@@ -136,7 +140,13 @@ async def resumen_financiero_tratamiento(
     current_user: dict = Depends(get_current_user),
     request: Request = None,
 ):
-
+    """
+    Resumen financiero del tratamiento:
+    - Costo total pactado
+    - Total abonado (suma de abonos confirmados)
+    - Saldo pendiente
+    - Estado de pago: Pendiente / Abono parcial / Pagado
+    """
     client_ip = request.client.host if request and request.client else current_user.get("ip_address")
     service = CostoTratamientoService(db)
     resumen = service.resumen_financiero(id_tratamiento)
@@ -170,8 +180,7 @@ async def actualizar_costo_tratamiento(
     """
     Actualiza el costo total pactado para un tratamiento.
     Útil para aplicar descuentos o corregir errores de registro.
-
-    **Requiere:** autenticación + permiso `update_treatment`.
+    Los abonos ya registrados no se eliminan.
     """
     client_ip = request.client.host if request and request.client else current_user.get("ip_address")
 
@@ -199,6 +208,9 @@ async def actualizar_costo_tratamiento(
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+
+# ── Abonos ────────────────────────────────────────────────────────────────────
+
 @router.post(
     "/abonos/",
     response_model=AbonoCreateResponse,
@@ -214,7 +226,13 @@ async def registrar_abono(
     current_user: dict = Depends(get_current_user),
     request: Request = None,
 ):
+    """
+    Registra un abono (pago parcial) a un tratamiento.
 
+    La respuesta incluye el `resumen_financiero` actualizado con el nuevo
+    saldo pendiente, para que el frontend pueda actualizar la UI sin necesidad
+    de hacer otra petición.
+    """
     client_ip = request.client.host if request and request.client else current_user.get("ip_address")
 
     try:
@@ -237,6 +255,9 @@ async def registrar_abono(
             if excede else None
         )
 
+        # Obtener resumen financiero actualizado
+        resumen = service.resumen_financiero(data.id_tratamiento)
+
         AuditLogger.log_action(
             user_id=current_user["user_id"],
             action="create_abono_tratamiento",
@@ -247,7 +268,7 @@ async def registrar_abono(
                 "id_tratamiento": data.id_tratamiento,
                 "monto": str(data.monto),
                 "medio_pago": data.medio_pago,
-                "excede_saldo": excede,
+                "saldo_pendiente_nuevo": resumen["saldo_pendiente"],
             },
             ip_address=client_ip,
         )
@@ -263,6 +284,7 @@ async def registrar_abono(
             notas=abono.notas,
             fecha_registro=abono.fecha_registro,
             registrado_por=abono.registrado_por,
+            resumen_financiero=resumen,
             advertencia=advertencia,
         )
 
@@ -292,7 +314,10 @@ async def listar_abonos_tratamiento(
     current_user: dict = Depends(get_current_user),
     request: Request = None,
 ):
-
+    """
+    Lista todos los abonos de un tratamiento.
+    Usa `solo_confirmados=true` para excluir abonos anulados.
+    """
     client_ip = request.client.host if request and request.client else current_user.get("ip_address")
 
     service = CostoTratamientoService(db)
@@ -324,7 +349,10 @@ async def anular_abono(
     current_user: dict = Depends(get_current_user),
     request: Request = None,
 ):
-
+    """
+    Anula un abono. El registro permanece en BD con estado `Anulado`
+    y ya no se contabiliza en el saldo pagado.
+    """
     client_ip = request.client.host if request and request.client else current_user.get("ip_address")
 
     try:

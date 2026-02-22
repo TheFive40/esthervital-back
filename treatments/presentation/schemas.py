@@ -1,6 +1,8 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, validator
+from decimal import Decimal
 from datetime import date, datetime
 from typing import Optional, List
+
 
 class TratamientoCreate(BaseModel):
     id_paciente: int
@@ -11,6 +13,19 @@ class TratamientoCreate(BaseModel):
     sesiones_planificadas: int = 1
     estado: str = "Activo"
     fecha_inicio: date
+    # ── Costo (opcional al crear, pero recomendado) ──────────────────
+    costo_total: Optional[Decimal] = None
+    notas_costo: Optional[str] = None  # Descripción del costo pactado
+
+    @validator("costo_total")
+    def validate_costo(cls, v):
+        if v is not None:
+            if v <= 0:
+                raise ValueError("El costo total debe ser mayor a cero.")
+            if v > Decimal("999_999_999.99"):
+                raise ValueError("El costo total supera el límite permitido.")
+            return round(v, 2)
+        return v
 
 
 class TratamientoUpdate(BaseModel):
@@ -42,11 +57,25 @@ class TratamientoBase(BaseModel):
         from_attributes = True
 
 
+# ── Resumen financiero embebido en respuestas ─────────────────────────────────
+class ResumenFinancieroEmbedido(BaseModel):
+    id_costo: int
+    costo_total: float
+    total_abonado: float
+    saldo_pendiente: float
+    estado_pago: str   # "Pendiente" | "Abono parcial" | "Pagado"
+    cantidad_abonos: int
+
+    class Config:
+        from_attributes = True
+
+
 class TratamientoResponse(TratamientoBase):
-    # Información adicional calculada
     sesiones_completadas: int = 0
     paciente_nombre: Optional[str] = None
     usuario_nombre: Optional[str] = None
+    # Incluir resumen financiero si existe costo registrado
+    financiero: Optional[ResumenFinancieroEmbedido] = None
 
 
 class TratamientoDetallado(TratamientoBase):
@@ -54,6 +83,8 @@ class TratamientoDetallado(TratamientoBase):
     paciente_nombre: str
     usuario_nombre: str
     sesiones: List['SesionResponse'] = []
+    # Incluir resumen financiero completo
+    financiero: Optional[ResumenFinancieroEmbedido] = None
 
     class Config:
         from_attributes = True

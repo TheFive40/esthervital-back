@@ -11,7 +11,7 @@ from treatments.presentation.schemas import (
     TratamientoCreate, TratamientoUpdate, TratamientoResponse, TratamientoDetallado,
     SesionCreate, SesionUpdate, SesionResponse,
     ImagenCreate, ImagenUpdate, ImagenResponse,
-    PaginatedTratamientosResponse
+    PaginatedTratamientosResponse,
 )
 from typing import List, Optional
 import math
@@ -21,13 +21,34 @@ router = APIRouter(
     tags=["Tratamientos"]
 )
 
+
 @router.post("/", response_model=TratamientoResponse)
 def crear_tratamiento(
     data: TratamientoCreate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_employee)
+    current_user: dict = Depends(get_current_employee),
 ):
-    return use_cases.crear_tratamiento(db, data)
+    """
+    Crea un nuevo tratamiento.
+
+    Opcionalmente, puedes incluir `costo_total` (y `notas_costo`) para registrar
+    el costo pactado con el paciente en la misma operación. Los abonos se
+    gestionan luego a través de `POST /pagos/abonos/`.
+
+    ```json
+    {
+      "id_paciente": 1,
+      "id_usuario": 2,
+      "nombre_tratamiento": "Cavitación corporal",
+      "tipo_tratamiento": "Estético",
+      "sesiones_planificadas": 10,
+      "fecha_inicio": "2026-02-21",
+      "costo_total": 850000,
+      "notas_costo": "Precio acordado con descuento del 10%"
+    }
+    ```
+    """
+    return use_cases.crear_tratamiento(db, data, registrado_por=current_user["user_id"])
 
 
 @router.get("/", response_model=PaginatedTratamientosResponse)
@@ -37,32 +58,27 @@ def listar_tratamientos(
     estado: Optional[str] = None,
     search: Optional[str] = None,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_employee)
+    current_user: dict = Depends(get_current_employee),
 ):
     """
-    Listar todos los tratamientos (con paginación optimizada a nivel SQL)
-    
-    Query params:
-    - page: Número de página (default: 1)
-    - limit: Máximo de registros a retornar (default: 50, max: 100)
-    - estado: Filtrar por estado (Activo/Finalizado/Cancelado)
-    - search: Buscar por nombre del tratamiento
+    Lista todos los tratamientos con paginación.
+    Cada item incluye el resumen financiero (`financiero`) si tiene costo registrado.
     """
     limit = min(limit, 100)
     skip = (page - 1) * limit
-    
+
     tratamientos, total = use_cases.listar_tratamientos_paginados(
         db, skip, limit, estado, None, search
     )
-    
+
     total_pages = math.ceil(total / limit) if limit > 0 else 0
-    
+
     return PaginatedTratamientosResponse(
         data=tratamientos,
         total=total,
         page=page,
         limit=limit,
-        total_pages=total_pages
+        total_pages=total_pages,
     )
 
 
@@ -70,8 +86,13 @@ def listar_tratamientos(
 def obtener_tratamiento_detallado(
     id_tratamiento: int,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_employee)
+    current_user: dict = Depends(get_current_employee),
 ):
+    """
+    Obtiene el detalle completo del tratamiento incluyendo:
+    - Sesiones realizadas
+    - Resumen financiero (costo total, abonado, saldo pendiente, estado de pago)
+    """
     tratamiento = use_cases.obtener_tratamiento_detallado(db, id_tratamiento)
     if not tratamiento:
         raise HTTPException(status_code=404, detail="Tratamiento no encontrado")
@@ -82,7 +103,7 @@ def obtener_tratamiento_detallado(
 def listar_tratamientos_paciente(
     id_paciente: int,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_employee)
+    current_user: dict = Depends(get_current_employee),
 ):
     return use_cases.obtener_tratamientos_por_paciente(db, id_paciente)
 
@@ -92,7 +113,7 @@ def actualizar_tratamiento(
     id_tratamiento: int,
     data: TratamientoUpdate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_employee)
+    current_user: dict = Depends(get_current_employee),
 ):
     tratamiento = use_cases.actualizar_tratamiento(db, id_tratamiento, data)
     if not tratamiento:
@@ -104,18 +125,20 @@ def actualizar_tratamiento(
 def eliminar_tratamiento(
     id_tratamiento: int,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_admin)  # Solo admin puede eliminar
+    current_user: dict = Depends(get_current_admin),
 ):
     if not use_cases.eliminar_tratamiento(db, id_tratamiento):
         raise HTTPException(status_code=404, detail="Tratamiento no encontrado")
     return {"message": "Tratamiento eliminado correctamente"}
 
 
+# ── Sesiones ──────────────────────────────────────────────────────────────────
+
 @router.post("/sesiones", response_model=SesionResponse)
 def crear_sesion(
     data: SesionCreate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_employee)
+    current_user: dict = Depends(get_current_employee),
 ):
     return use_cases.crear_sesion(db, data)
 
@@ -124,7 +147,7 @@ def crear_sesion(
 def listar_sesiones(
     id_tratamiento: int,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_employee)
+    current_user: dict = Depends(get_current_employee),
 ):
     return use_cases.listar_sesiones_tratamiento(db, id_tratamiento)
 
@@ -133,7 +156,7 @@ def listar_sesiones(
 def obtener_sesion(
     id_sesion: int,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_employee)
+    current_user: dict = Depends(get_current_employee),
 ):
     sesion = use_cases.obtener_sesion(db, id_sesion)
     if not sesion:
@@ -146,7 +169,7 @@ def actualizar_sesion(
     id_sesion: int,
     data: SesionUpdate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_employee)
+    current_user: dict = Depends(get_current_employee),
 ):
     sesion = use_cases.actualizar_sesion(db, id_sesion, data)
     if not sesion:
@@ -158,18 +181,20 @@ def actualizar_sesion(
 def eliminar_sesion(
     id_sesion: int,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_admin)  # Solo admin
+    current_user: dict = Depends(get_current_admin),
 ):
     if not use_cases.eliminar_sesion(db, id_sesion):
         raise HTTPException(status_code=404, detail="Sesión no encontrada")
     return {"message": "Sesión eliminada correctamente"}
 
 
+# ── Imágenes ──────────────────────────────────────────────────────────────────
+
 @router.post("/imagenes", response_model=ImagenResponse)
 def crear_imagen(
     data: ImagenCreate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_employee)
+    current_user: dict = Depends(get_current_employee),
 ):
     return use_cases.crear_imagen(db, data)
 
@@ -178,7 +203,7 @@ def crear_imagen(
 def listar_imagenes_sesion(
     id_sesion: int,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_employee)
+    current_user: dict = Depends(get_current_employee),
 ):
     return use_cases.listar_imagenes_sesion(db, id_sesion)
 
@@ -187,7 +212,7 @@ def listar_imagenes_sesion(
 def obtener_imagen(
     id_imagen: int,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_employee)
+    current_user: dict = Depends(get_current_employee),
 ):
     imagen = use_cases.obtener_imagen(db, id_imagen)
     if not imagen:
@@ -200,7 +225,7 @@ def actualizar_imagen(
     id_imagen: int,
     data: ImagenUpdate,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_employee)
+    current_user: dict = Depends(get_current_employee),
 ):
     imagen = use_cases.actualizar_imagen(db, id_imagen, data)
     if not imagen:
@@ -212,7 +237,7 @@ def actualizar_imagen(
 def eliminar_imagen(
     id_imagen: int,
     db: Session = Depends(get_db),
-    current_user: dict = Depends(get_current_admin)  # Solo admin
+    current_user: dict = Depends(get_current_admin),
 ):
     if not use_cases.eliminar_imagen(db, id_imagen):
         raise HTTPException(status_code=404, detail="Imagen no encontrada")

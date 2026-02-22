@@ -10,11 +10,13 @@ from datetime import datetime
 from treatments.application.payment_use_cases import MEDIOS_PAGO_VALIDOS
 
 
-# ──────────────────────────────────────────────────────────
-# COSTO TOTAL
-# ──────────────────────────────────────────────────────────
+# ── COSTO TOTAL ───────────────────────────────────────────────────────────────
 
 class CostoCreate(BaseModel):
+    """
+    Registra el costo acordado para un tratamiento.
+    Usar solo si NO se envió `costo_total` al crear el tratamiento.
+    """
     id_tratamiento: int
     costo_total: Decimal
     notas: Optional[str] = None
@@ -64,7 +66,7 @@ class CostoRead(BaseModel):
 
 
 class ResumenFinanciero(BaseModel):
-    """Resumen financiero de un tratamiento: costo, abonos y saldo."""
+    """Resumen financiero completo de un tratamiento."""
     id_costo: int
     id_tratamiento: int
     costo_total: float
@@ -74,18 +76,22 @@ class ResumenFinanciero(BaseModel):
     cantidad_abonos: int
 
 
-# ──────────────────────────────────────────────────────────
-# ABONOS
-# ──────────────────────────────────────────────────────────
+# ── ABONOS ────────────────────────────────────────────────────────────────────
 
 class AbonoCreate(BaseModel):
     """
-    Datos para registrar un abono (pago parcial) a un tratamiento.
+    Registra un pago parcial (abono) a un tratamiento.
+
+    - `id_tratamiento`: ID del tratamiento al que se le aplica el abono.
+    - `monto`: Monto del abono (mayor a cero).
+    - `medio_pago`: Efectivo, Transferencia bancaria, Tarjeta débito, etc.
+    - `fecha_pago`: Fecha del pago. Si no se envía, se usa la fecha actual.
+    - `referencia`: Número de comprobante, referencia de transferencia, etc.
     """
     id_tratamiento: int
     monto: Decimal
     medio_pago: str
-    fecha_pago: Optional[datetime] = None   # Si no se envía, se usa NOW()
+    fecha_pago: Optional[datetime] = None
     referencia: Optional[str] = None
     notas: Optional[str] = None
 
@@ -141,7 +147,12 @@ class AbonoRead(BaseModel):
 
 
 class AbonoCreateResponse(AbonoRead):
-    """Igual que AbonoRead pero incluye advertencia si el abono excede el saldo."""
+    """
+    Igual que AbonoRead pero incluye:
+    - `resumen_financiero`: Estado actualizado del tratamiento tras el abono.
+    - `advertencia`: Mensaje si el abono excede el saldo pendiente.
+    """
+    resumen_financiero: Optional[ResumenFinanciero] = None
     advertencia: Optional[str] = None
 
 
