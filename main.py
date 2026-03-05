@@ -41,16 +41,14 @@ app = FastAPI(
 Base.metadata.create_all(bind=engine)
 
 app.add_middleware(SecureLoggingMiddleware)
-
 app.add_middleware(InputSanitizationMiddleware)
-
 app.add_middleware(IPRateLimitMiddleware, max_attempts=10, window_seconds=300)
-
 app.add_middleware(RequestLoggingMiddleware)
 app.add_middleware(CacheControlMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 
+# --- CORS: build the full origins list BEFORE registering the middleware ---
 cors_origins_env = os.getenv("CORS_ORIGINS", "")
 origins = cors_origins_env.split(",") if cors_origins_env else [
     "https://esthervital-front.onrender.com/",
@@ -65,18 +63,13 @@ production_origins = [
     "https://esthervital-front.vercel.app",
     "https://esthervital-staging.vercel.app",
 ]
-allow_origins=["*"]
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+
+# Merge production origins BEFORE registering the middleware
 for origin in production_origins:
     if origin not in origins:
         origins.append(origin)
 
+# Single CORSMiddleware registration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
@@ -93,7 +86,7 @@ app.include_router(historiales_router)
 app.include_router(citas_router)
 app.include_router(tratamientos_router)
 app.include_router(consentimientos_router)
-app.include_router(pagos_router)  # NUEVO — /pagos
+app.include_router(pagos_router)
 
 
 @app.get("/")
