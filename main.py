@@ -54,7 +54,11 @@ app.add_middleware(SecurityHeadersMiddleware)
 cors_origins_env = os.getenv("CORS_ORIGINS", "")
 origins = cors_origins_env.split(",") if cors_origins_env else [
     "https://esthervital-front.onrender.com/",
-    "https://esthervital-front.onrender.com"
+    "https://esthervital-front.onrender.com",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
 ]
 
 production_origins = [
