@@ -65,7 +65,14 @@ production_origins = [
     "https://esthervital-front.vercel.app",
     "https://esthervital-staging.vercel.app",
 ]
-
+allow_origins=["*"]
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 for origin in production_origins:
     if origin not in origins:
         origins.append(origin)
