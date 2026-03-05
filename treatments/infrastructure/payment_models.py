@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, Numeric, Text, DateTime, ForeignKey
 from sqlalchemy.sql import func
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, backref
 from shared.database import Base
 
 
@@ -13,7 +13,6 @@ class CostoTratamiento(Base):
 
     id_costo = Column(Integer, primary_key=True, index=True)
 
-    # Relación 1-a-1 con el tratamiento
     id_tratamiento = Column(
         Integer,
         ForeignKey("tratamientos.id_tratamiento", ondelete="CASCADE"),
@@ -21,41 +20,34 @@ class CostoTratamiento(Base):
         unique=True,
     )
 
-    # Costo total pactado con el paciente (en pesos colombianos)
     costo_total = Column(Numeric(12, 2), nullable=False)
-
-    # Notas sobre la tarifa (ej: "precio de temporada", "descuento aplicado", etc.)
     notas = Column(Text)
-
     fecha_registro = Column(DateTime(timezone=True), server_default=func.now())
     registrado_por = Column(Integer, ForeignKey("usuarios.id_usuario"), nullable=True)
 
-    # Relaciones
-    tratamiento = relationship("Tratamiento", backref="costo", uselist=False)
+    # Al eliminar Tratamiento → elimina CostoTratamiento (no nullifica)
+    tratamiento = relationship(
+        "Tratamiento",
+        backref=backref("costo", uselist=False, cascade="all, delete-orphan"),
+        uselist=False,
+        passive_deletes=True,
+    )
     usuario_registro = relationship("Usuario", foreign_keys=[registrado_por])
 
-    # Computed helpers (acceso rápido en Python)
     @property
     def total_abonado(self) -> float:
-        """Suma de todos los abonos confirmados."""
         return float(
-            sum(
-                a.monto
-                for a in self.abonos
-                if a.estado == "Confirmado"
-            )
+            sum(a.monto for a in self.abonos if a.estado == "Confirmado")
         )
 
     @property
     def saldo_pendiente(self) -> float:
-        """Saldo que aún debe el paciente."""
         return float(self.costo_total) - self.total_abonado
 
 
 class AbonoTratamiento(Base):
     """
-    Registra cada pago parcial (abono) realizado por el paciente
-    hacia el costo total de un tratamiento.
+    Registra cada pago parcial (abono) realizado por el paciente.
     """
     __tablename__ = "abonos_tratamiento"
 
@@ -68,21 +60,18 @@ class AbonoTratamiento(Base):
     )
 
     monto = Column(Numeric(12, 2), nullable=False)
-
-    medio_pago = Column(String(50))  # "Efectivo", "Transferencia", "Tarjeta débito", etc.
-
+    medio_pago = Column(String(50))
     referencia = Column(String(100))
-
-    estado = Column(String(20), default="Confirmado")  # "Confirmado", "Anulado"
-
-    # Fecha en que se realizó el pago (puede diferir de fecha_registro)
+    estado = Column(String(20), default="Confirmado")
     fecha_pago = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
-
     notas = Column(Text)
-
     fecha_registro = Column(DateTime(timezone=True), server_default=func.now())
     registrado_por = Column(Integer, ForeignKey("usuarios.id_usuario"), nullable=True)
 
-    # Relaciones
-    costo = relationship("CostoTratamiento", backref="abonos")
+    # Al eliminar CostoTratamiento → elimina AbonoTratamiento (no nullifica)
+    costo = relationship(
+        "CostoTratamiento",
+        backref=backref("abonos", cascade="all, delete-orphan"),
+        passive_deletes=True,
+    )
     usuario_registro = relationship("Usuario", foreign_keys=[registrado_por])
