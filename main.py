@@ -40,8 +40,6 @@ app = FastAPI(
 
 Base.metadata.create_all(bind=engine)
 
-
-
 app.add_middleware(SecureLoggingMiddleware)
 
 app.add_middleware(InputSanitizationMiddleware)
@@ -53,13 +51,10 @@ app.add_middleware(CacheControlMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 
-
 cors_origins_env = os.getenv("CORS_ORIGINS", "")
 origins = cors_origins_env.split(",") if cors_origins_env else [
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
+    "https://esthervital-front.onrender.com/",
+    "https://esthervital-front.onrender.com"
 ]
 
 production_origins = [
@@ -87,7 +82,7 @@ app.include_router(historiales_router)
 app.include_router(citas_router)
 app.include_router(tratamientos_router)
 app.include_router(consentimientos_router)
-app.include_router(pagos_router)             # NUEVO — /pagos
+app.include_router(pagos_router)  # NUEVO — /pagos
 
 
 @app.get("/")
@@ -109,7 +104,6 @@ async def health_check():
         "service": "EstherVital API",
         "version": "2.1.0"
     }
-
 
 
 @app.exception_handler(RequestValidationError)
@@ -150,7 +144,6 @@ async def general_exception_handler(request, exc):
             status_code=500,
             content={"detail": "Internal server error"}
         )
-
 
 
 @app.on_event("startup")
