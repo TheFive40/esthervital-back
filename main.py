@@ -48,35 +48,13 @@ app.add_middleware(CacheControlMiddleware)
 app.add_middleware(RateLimitMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 
-# --- CORS: build the full origins list BEFORE registering the middleware ---
-cors_origins_env = os.getenv("CORS_ORIGINS", "")
-origins = cors_origins_env.split(",") if cors_origins_env else [
-    "https://esthervital-front.onrender.com/",
-    "https://esthervital-front.onrender.com",
-    "http://localhost:3000",
-    "http://127.0.0.1:3000",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
-
-production_origins = [
-    "https://esthervital-front.vercel.app",
-    "https://esthervital-staging.vercel.app",
-]
-
-# Merge production origins BEFORE registering the middleware
-for origin in production_origins:
-    if origin not in origins:
-        origins.append(origin)
-
-# Single CORSMiddleware registration
+# ✅ CORS abierto — permite peticiones desde cualquier origen
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+    allow_origins=["*"],
+    allow_credentials=False,  # debe ser False cuando allow_origins=["*"]
+    allow_methods=["*"],
     allow_headers=["*"],
-    max_age=600,
 )
 
 app.include_router(auth_router)
